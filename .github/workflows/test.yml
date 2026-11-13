@@ -1,0 +1,31 @@
+# Builds and tests the client on every pull request and on main, with the Go toolchain go.mod names (fetched and
+# checked against Go's checksum database). Nothing here publishes: a release is a v* tag, which only admins can push.
+name: test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: go vet and go test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: go vet and go test
+        env:
+          GOTOOLCHAIN: auto
+          GOFLAGS: -mod=readonly
+        run: |
+          set -eu
+          go version
+          go vet ./...
+          go test -count=1 ./...
