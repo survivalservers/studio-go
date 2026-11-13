@@ -1,0 +1,509 @@
+openapi: 3.1.0
+info:
+  title: Local API
+  version: 0.1.0
+  summary: What a game server calls on its own machine to say it is ready, get its match, report players and stop.
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+  description: |
+    Every game server can reach this local API at `$GS_LOCAL_API_URL` and calls it with its own token,
+    `Authorization: Bearer $GS_TOKEN`. Plain HTTP/1.1 and JSON, so any engine's own HTTP client works: Unity
+    `UnityWebRequest`, the Unreal HTTP module, Godot `HTTPRequest`, or libcurl. No SDK is needed.
+
+    Nothing here is required. A game server that never calls it still works: exiting the process is a stop, the
+    console is the log, and readiness can come from a log line, a bound port or a delay.
+
+    **Long-polls.** `GET /v0/self/allocation` and `GET /v0/self/shutdown` take `wait` (for example `30s`). They answer
+    `200` as soon as there is something to return, or `204` when `wait` runs out first. `wait` is capped at `60s`;
+    without it they answer at once. Call again after a `204`.
+
+    **Limits.** Each game server may make 50 calls a second (bursts of 100) and hold 4 open long-polls of each kind.
+    Request bodies are at most 64 KiB. Over a limit: `429` with `Retry-After`, or `413`.
+
+    **Errors** are RFC 9457 problem details (`application/problem+json`) with a stable `code`.
+
+    The environment variables every game server gets are listed in `x-environment` (`GS` stands for game server); the
+    allocation file has the same JSON as `GET /v0/self/allocation`.
+servers:
+  - url: '{local_api_url}'
+    description: The value of `GS_LOCAL_API_URL`.
+    variables:
+      local_api_url:
+        default: http://127.0.0.1:7600
+        description: '`http://127.0.0.1:7600` on Windows; the container network gateway on port 7600 on Linux.'
+security:
+  - token: []
+tags:
+  - name: lifecycle
+    description: Ready, allocation, shutdown notice and self-stop.
+  - name: reporting
+    description: Optional facts the game server reports about itself.
+
+x-environment:
+  - {name: GS_ID, example: gs_a01JA8X9K2Q7M3T5V6W8Y0Z1B2, description: This game server. A ready server gets it when it is pre-started; it does not change at allocation.}
+  - {name: GS_KIND, example: match, description: '`match` or `persistent_server`.'}
+  - {name: GS_APP, example: brawl-server, description: The app's slug.}
+  - {name: GS_VERSION, example: 1.4.2, description: The version's name.}
+  - {name: GS_REGION, example: us-central, description: The region it runs in.}
+  - {name: GS_CONTINENT, example: north-america, description: That region's continent.}
+  - {name: GS_PUBLIC_IP, example: 203.0.113.24, description: The address players use.}
+  - {name: GS_PORT_<NAME>, example: GS_PORT_GAME=31042, description: 'The public port for each named port; the name is upper-cased and `-` becomes `_`.'}
+  - {name: GS_PORT_<NAME>_INTERNAL, example: GS_PORT_GAME_INTERNAL=7777, description: Linux only, for a port with a container port. The port inside the container that the public port is mapped to. A passthrough port has none, so the game listens on GS_PORT_<NAME>.}
+  - {name: GS_CPU, example: '2', description: 'CPUs enforced (may be fractional, for example `0.5`).'}
+  - {name: GS_MEMORY_MB, example: '4096', description: Memory enforced, in MiB. On Windows this is committed memory.}
+  - {name: GS_LOCAL_API_URL, example: 'http://127.0.0.1:7600', description: This local API.}
+  - {name: GS_TOKEN, example: (random), description: 'Bearer token for this local API. It only works for this game server''s current run: a restart in place or a resume after a stop when empty starts with a new one. Never log it.'}
+  - {name: GS_ALLOCATION_FILE, example: 'D:\gs\run\gs_a01JA8X9K2Q7M3T5V6W8Y0Z1B2\.gs\allocation.json', description: 'Written atomically (whole file at once) at allocation; on a cold start, before the process starts. Absent until then. Holds the allocation data except secret values, which only GET /v0/self/allocation returns.'}
+  - {name: GS_LOG_DIR, example: 'D:\gs\run\gs_a01JA8X9K2Q7M3T5V6W8Y0Z1B2\.gs\logs', description: Anything written here is kept with the console log.}
+  - {name: GS_ARTIFACT_DIR, example: 'D:\gs\run\gs_a01JA8X9K2Q7M3T5V6W8Y0Z1B2\.gs\artifacts', description: Anything written here is collected when the game server exits.}
+
+paths:
+  /v0/self:
+    get:
+      operationId: getSelf
+      tags: [lifecycle]
+      summary: This game server's own record
+      description: Its ID, ports, region, labels, players and status as the machine sees them.
+      responses:
+        '200':
+          description: The record.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Self'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+
+  /v0/self/ready:
+    post:
+      operationId: postReady
+      tags: [lifecycle]
+      summary: Ready for players
+      description: |
+        Call once the game server accepts players. A ready server (pre-started) becomes available for
+        allocation; any other becomes running. Used when the version's ready check is `local_api`; with any other
+        ready check the call is recorded and does no harm. Calling it again is fine.
+      responses:
+        '204': {description: Recorded.}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '409': {$ref: '#/components/responses/InvalidState'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+
+  /v0/self/health:
+    post:
+      operationId: postHealth
+      tags: [lifecycle]
+      summary: I am still alive
+      description: Optional heartbeat. If the version sets `health_timeout`, going that long without one marks the game server failed.
+      responses:
+        '204': {description: Recorded.}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+
+  /v0/self/allocation:
+    get:
+      operationId: getAllocation
+      tags: [lifecycle]
+      summary: Wait for this game server's match
+      description: |
+        Long-poll. `200` with the allocation data once the game server is allocated (at once if it already is).
+        `204` if `wait` runs out first, or early when a shutdown is requested meanwhile (read it with
+        `GET /v0/self/shutdown`). A cold-started game server is allocated before its process starts.
+      parameters:
+        - $ref: '#/components/parameters/Wait'
+        - name: relay
+          in: query
+          required: false
+          description: >-
+            `true` for a compatibility layer that passes the match on as another platform's settings (such as GameLift's
+            game properties): the start's secret values are left out of `env`, since that platform's SDK may log them.
+            Games leave it out.
+          schema: {type: boolean, default: false}
+      responses:
+        '200':
+          description: Allocated.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Allocation'}
+        '204': {description: Not allocated yet; call again.}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '422': {$ref: '#/components/responses/ValidationFailed'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+
+  /v0/self/shutdown:
+    get:
+      operationId: getShutdown
+      tags: [lifecycle]
+      summary: Wait for a stop request
+      description: |
+        Long-poll. `200` with the deadline once a stop has been requested (by the API, a time limit, or the game
+        server's own `POST /v0/self/stop`). After the deadline the whole process tree is killed. `204` if `wait`
+        runs out first.
+
+        A game server that has called this during its run exits on the notice: the machine holds back the version's stop
+        signal and sends it only if the game still runs halfway through its shutdown time. One that never calls it gets
+        the notice and the signal at once.
+      parameters:
+        - $ref: '#/components/parameters/Wait'
+        - name: relay
+          in: query
+          required: false
+          description: >-
+            `true` for a compatibility layer that passes the notice on in another platform's terms (such as an Agones SDK
+            server's watch): the call then does not count as the game waiting for the notice, so it gets its stop signal
+            with the notice, as on that platform. Games leave it out.
+          schema: {type: boolean, default: false}
+      responses:
+        '200':
+          description: A stop has been requested.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Shutdown'}
+        '204': {description: No stop requested; call again.}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '422': {$ref: '#/components/responses/ValidationFailed'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+
+  /v0/self/players:
+    put:
+      operationId: putPlayers
+      tags: [reporting]
+      summary: Who is playing
+      description: |
+        Replaces the player list or count. Send `players` (who they are and where, which the panel's player list and
+        map show), `ids` (your own player IDs, so the backend can see who is on which game server) or just `count`,
+        one of them. A position is never recorded: only the latest list is kept, on the machine. An ID with a control character (U+0000-U+001F, U+007F-U+009F), such as
+        a NUL in a name a player chose, is refused with a 422 whose field names it (`ids[2]`); drop that player and
+        send the rest.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PlayersUpdate'}
+      responses:
+        '200':
+          description: The players now recorded.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Players'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '422': {$ref: '#/components/responses/ValidationFailed'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+
+  /v0/self/labels:
+    patch:
+      operationId: patchLabels
+      tags: [reporting]
+      summary: Change labels
+      description: |
+        Merges into the game server's labels: a key with a string sets it, a key with `null` removes it. The
+        backend can filter game servers by label (for example `map:desert`).
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema: {$ref: '#/components/schemas/LabelsPatch'}
+          application/json:
+            schema: {$ref: '#/components/schemas/LabelsPatch'}
+      responses:
+        '200':
+          description: All labels after the change.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/LabelsResult'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '422': {$ref: '#/components/responses/ValidationFailed'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+
+  /v0/self/stop:
+    post:
+      operationId: postStop
+      tags: [lifecycle]
+      summary: Stop me
+      description: |
+        Graceful self-stop: the same as exiting with code 0, and recorded with exit reason `self`. The game
+        server then gets the version's usual stop (with its shutdown time), and `GET /v0/self/shutdown` answers.
+        Calling it again is fine.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/StopRequest'}
+      responses:
+        '202':
+          description: Stopping.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/StopAccepted'}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '422': {$ref: '#/components/responses/ValidationFailed'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+
+  /v0/self/tick:
+    post:
+      operationId: postTick
+      tags: [reporting]
+      summary: Frame times for the last second
+      description: Optional. Send once a second; the values feed the game server's tick graph.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Tick'}
+      responses:
+        '204': {description: Recorded.}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '422': {$ref: '#/components/responses/ValidationFailed'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+
+  /v0/self/saved:
+    post:
+      operationId: postSaved
+      tags: [reporting]
+      summary: The game just finished a save
+      description: >-
+        Optional, for persistent servers. The saves are backed up at once, with no wait for their folder to go quiet. A game
+        that never calls this is still backed up by the folder watcher. With `keep` the backup stays, locked, under that name:
+        a game can keep 20 backups of a server, and past that a save is an ordinary backup and the studio is told. Call at
+        most once every 10 seconds, and with `keep` once a minute.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                keep: {type: string, minLength: 1, maxLength: 100, example: Season 3 end}
+      responses:
+        '202': {description: Being backed up.}
+        '401': {$ref: '#/components/responses/Unauthenticated'}
+        '409': {$ref: '#/components/responses/InvalidState'}
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '422': {$ref: '#/components/responses/ValidationFailed'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+
+components:
+  securitySchemes:
+    token:
+      type: http
+      scheme: bearer
+      description: The value of `GS_TOKEN`.
+
+  parameters:
+    Wait:
+      name: wait
+      in: query
+      required: false
+      description: 'How long to hold the call open: a number with a unit (`500ms`, `30s`, `1m`); a bare number is seconds. Capped at `60s`. Default: answer at once.'
+      schema:
+        type: string
+        pattern: '^[0-9]+(\.[0-9]+)?(ms|s|m)?$'
+        examples: [30s]
+
+  responses:
+    Unauthenticated:
+      description: Missing or wrong `GS_TOKEN` (or the run it was given to has ended).
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    InvalidState:
+      description: Not possible in the game server's current state (for example `ready` after a stop was requested).
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    ValidationFailed:
+      description: The request is not valid; `errors` says which field.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    TooLarge:
+      description: The request body is over 64 KiB.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    RateLimited:
+      description: Too many calls, or too many open long-polls. Wait for `Retry-After` seconds.
+      headers:
+        Retry-After:
+          description: Seconds to wait.
+          schema: {type: integer, minimum: 1}
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+
+  schemas:
+    Self:
+      type: object
+      required: [id, kind, app, version, region, continent, public_ip, ports, labels, status, players, allocated_at, shutdown_requested_at]
+      properties:
+        id: {type: string, examples: [gs_a01JA8X9K2Q7M3T5V6W8Y0Z1B2]}
+        kind:
+          type: string
+          enum: [match, persistent_server]
+        app: {type: string, examples: [brawl-server]}
+        version: {type: string, examples: [1.4.2]}
+        region: {type: string, examples: [us-central]}
+        continent: {type: string, examples: [north-america]}
+        public_ip: {type: string, examples: [203.0.113.24]}
+        ports:
+          type: object
+          description: Named ports, as in the version.
+          additionalProperties: {$ref: '#/components/schemas/Port'}
+          examples: [{game: {port: 31042, protocol: udp}, query: {port: 31043, protocol: udp}}]
+        labels: {$ref: '#/components/schemas/Labels'}
+        status:
+          type: string
+          description: |
+            `starting` until ready. `warm` when a pre-started game server (a ready server) is ready and waiting to be
+            allocated. `running` once ready (fresh start) or allocated (ready server). `stopping` once a stop has been
+            requested.
+          enum: [starting, warm, running, stopping]
+        players: {$ref: '#/components/schemas/Players'}
+        allocated_at: {type: [string, 'null'], format: date-time}
+        shutdown_requested_at: {type: [string, 'null'], format: date-time}
+    Port:
+      type: object
+      required: [port, protocol]
+      properties:
+        port: {type: integer, minimum: 1, maximum: 65535, description: The public port players connect to.}
+        protocol: {type: string, enum: [udp, tcp]}
+        internal: {type: integer, minimum: 1, maximum: 65535, description: Linux only. The container port it is mapped to. Left out for a passthrough port, which listens on its public port.}
+    Allocation:
+      type: object
+      description: The same JSON is written to `GS_ALLOCATION_FILE`, except that secret values in `env` are returned only by this call, never written to the file.
+      required: [game_server_id, allocated_at, labels, env, args, expires_at]
+      properties:
+        game_server_id: {type: string, examples: [gs_a01JA8X9K2Q7M3T5V6W8Y0Z1B2]}
+        allocated_at: {type: string, format: date-time}
+        external_id: {type: string, description: Your own ID from the start request, if you set one., examples: ['88231']}
+        labels: {$ref: '#/components/schemas/Labels'}
+        env:
+          type: object
+          description: The start request's `env`, secret values included. On a cold start these are also in the process environment. The allocation file leaves secret values out.
+          additionalProperties: {type: string}
+          examples: [{MATCH_MODE: ranked}]
+        args:
+          type: array
+          description: The start request's `args`. On a cold start these are also on the command line.
+          items: {type: string}
+          examples: [[-MaxPlayers=10]]
+        expires_at: {type: [string, 'null'], format: date-time, description: When the time limit (`ttl`) stops it, if one was set.}
+    Shutdown:
+      type: object
+      required: [requested_at, deadline, reason]
+      properties:
+        requested_at: {type: string, format: date-time}
+        deadline: {type: string, format: date-time, description: When the whole process tree is killed if it has not exited.}
+        reason:
+          type: string
+          description: |
+            Why it is stopping: `api` (a stop call), `bulk` (a bulk stop), `self` (its own `POST /v0/self/stop`),
+            `ttl` or `max_duration` (a time limit), `boot_timeout` (not ready in time), `health_timeout`, `restart` (a
+            persistent server's restart), `paused` (a persistent server pausing while nobody is on), `out_of_disk` (its
+            files went over its disk size, or it wrote the most on a nearly full disk), `lost_contact` (the machine lost
+            contact with us and is stopping its persistent servers safely), `machine_failure` (we have started it
+            elsewhere). More values may be added; treat an unknown one like `api`.
+          examples: [api]
+    PlayersUpdate:
+      type: object
+      description: Exactly one of `players`, `ids` or `count`.
+      oneOf:
+        - required: [players]
+        - required: [ids]
+        - required: [count]
+      properties:
+        players:
+          type: array
+          maxItems: 1000
+          items: {$ref: '#/components/schemas/PlayerInfo'}
+        ids:
+          type: array
+          maxItems: 1000
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 128, pattern: '^[^\x00-\x1F\x7F-\x9F]*$'}
+          examples: [[p_1, p_2]]
+        count: {type: integer, minimum: 0, maximum: 100000, examples: [2]}
+    PlayerInfo:
+      type: object
+      required: [id]
+      properties:
+        id: {type: string, minLength: 1, maxLength: 128, pattern: '^[^\x00-\x1F\x7F-\x9F]*$', examples: [p_1]}
+        name: {type: string, maxLength: 128, description: The name other players see., examples: [Vex_77]}
+        x: {type: number, description: Its position in the game's own units.}
+        y: {type: number}
+        z: {type: number}
+        map: {type: string, maxLength: 64, description: The map it is on, when the game has several., examples: [Drowned Coast]}
+        team: {type: string, maxLength: 64}
+        ping_ms: {type: integer, minimum: 0, description: Its ping in milliseconds.}
+    Players:
+      type: object
+      required: [count]
+      properties:
+        count: {type: integer, minimum: 0}
+        ids:
+          type: array
+          description: Present when the game server reported IDs.
+          items: {type: string}
+    Labels:
+      type: object
+      description: Up to 32; keys up to 63 characters of `a-z 0-9 _ . -`; values up to 256 characters, no control characters.
+      maxProperties: 32
+      propertyNames: {pattern: '^[a-z0-9_.-]{1,63}$'}
+      additionalProperties: {type: string, maxLength: 256, pattern: '^[^\x00-\x1F\x7F-\x9F]*$'}
+      examples: [{match_id: '88231', queue: ranked}]
+    LabelsPatch:
+      type: object
+      description: A key with a string sets it; a key with `null` removes it. At most 64 keys in one call.
+      maxProperties: 64
+      propertyNames: {pattern: '^[a-z0-9_.-]{1,63}$'}
+      additionalProperties:
+        type: [string, 'null']
+        maxLength: 256
+        pattern: '^[^\x00-\x1F\x7F-\x9F]*$'
+      examples: [{map: desert, queue: null}]
+    LabelsResult:
+      type: object
+      required: [labels]
+      properties:
+        labels: {$ref: '#/components/schemas/Labels'}
+    StopRequest:
+      type: object
+      properties:
+        reason: {type: string, maxLength: 128, pattern: '^[^\x00-\x1F\x7F-\x9F]*$', description: Your own reason, no control characters; shown in the game server's events., examples: [match_over]}
+    StopAccepted:
+      type: object
+      required: [status]
+      properties:
+        status: {type: string, enum: [stopping]}
+    Tick:
+      type: object
+      required: [p99_ms]
+      properties:
+        p50_ms: {type: number, minimum: 0, maximum: 100000, examples: [2.1]}
+        p99_ms: {type: number, minimum: 0, maximum: 100000, examples: [3.9]}
+        hz: {type: integer, minimum: 1, maximum: 1000, description: The server's target tick rate., examples: [128]}
+    Problem:
+      type: object
+      description: RFC 9457 problem details with a stable `code`.
+      required: [type, title, status, code]
+      properties:
+        type: {type: string, format: uri, examples: ['https://studio.survivalservers.com/docs/reference/errors/#validation_failed']}
+        title: {type: string}
+        status: {type: integer}
+        code:
+          type: string
+          enum: [bad_request, unauthenticated, not_found, invalid_state, validation_failed, too_large, rate_limited, internal]
+        detail: {type: string}
+        errors:
+          type: array
+          description: Field errors, for `validation_failed`.
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: {type: string, examples: [ids]}
+              message: {type: string}
