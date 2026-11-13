@@ -116,6 +116,14 @@ func TestWaitBacksOffAndStops(t *testing.T) {
 	if ok, s := VersionSettled(map[string]any{"regions": []any{map[string]any{"region": "uk", "status": "failed"}, map[string]any{"region": "us-east", "status": "failed"}}}); !ok || s != "0 of 2 regions ready" {
 		t.Errorf("failed everywhere is settled: %v %s", ok, s)
 	}
+	// A version the machines removed is not waited for: nothing is on its way.
+	removed := map[string]any{"regions": []any{map[string]any{"region": "uk", "status": "removed"}, map[string]any{"region": "us-east", "status": "failed"}}}
+	if ok, _ := VersionSettled(removed); !ok || VersionRemoved(removed) != 1 {
+		t.Errorf("removed or failed everywhere is settled: %v, %d removed", ok, VersionRemoved(removed))
+	}
+	if ok, _ := VersionSettled(map[string]any{"regions": []any{map[string]any{"region": "uk", "status": "removed"}, map[string]any{"region": "us-east", "status": "copying"}}}); ok {
+		t.Error("a region still copying is waited for")
+	}
 	v := map[string]any{"regions": []any{map[string]any{"region": "uk", "status": "ready"}, map[string]any{"region": "us-east", "status": "staging"}}}
 	if ready, failed, all := VersionRegions(v); ready != 1 || failed != 0 || all != 2 {
 		t.Errorf("regions counted: %d ready, %d failed, of %d", ready, failed, all)
