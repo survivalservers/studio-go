@@ -1,6 +1,6 @@
-# Builds and tests the client and the speed-test kit (bench/) on every pull request and on main, with the Go
-# toolchain go.mod names (fetched and checked against Go's checksum database). Nothing here publishes: a release is a
-# v* tag, which only admins can push.
+# Builds and tests the client, the speed-test kit (bench/) and the local API (localapi/) on every pull request and on
+# main, with the Go toolchain go.mod names (fetched and checked against Go's checksum database). Nothing here
+# publishes: a release is a v* tag, which only admins can push.
 name: test
 
 on:
@@ -35,6 +35,18 @@ jobs:
       # leaves it out: vetted and tested here too.
       - name: go vet and go test (bench/)
         working-directory: bench
+        env:
+          GOTOOLCHAIN: auto
+          GOFLAGS: -mod=readonly
+        run: |
+          set -eu
+          go vet ./...
+          go test -count=1 ./...
+
+      # The local API is its own module in localapi/ (github.com/survivalservers/studio-go/localapi), so the root's
+      # ./... leaves it out: vetted and tested here too.
+      - name: go vet and go test (localapi/)
+        working-directory: localapi
         env:
           GOTOOLCHAIN: auto
           GOFLAGS: -mod=readonly
