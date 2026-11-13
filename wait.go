@@ -72,8 +72,19 @@ func VersionRegions(v map[string]any) (ready, failed, all int) {
 	return
 }
 
-// VersionSettled: ready in at least one region, or failed in every one.
+// VersionRemoved counts the regions whose machines removed the version (status removed): it is never copied there
+// again until it is put on a branch, so nothing there is worth waiting for.
+func VersionRemoved(v map[string]any) (removed int) {
+	for _, r := range asList(v["regions"]) {
+		if str(r["status"]) == "removed" {
+			removed++
+		}
+	}
+	return
+}
+
+// VersionSettled: ready in at least one region, or failed or removed in every one.
 func VersionSettled(v map[string]any) (bool, string) {
 	ready, failed, all := VersionRegions(v)
-	return ready > 0 || (all > 0 && failed == all), itoa(ready) + " of " + itoa(all) + " regions ready"
+	return ready > 0 || (all > 0 && failed+VersionRemoved(v) == all), itoa(ready) + " of " + itoa(all) + " regions ready"
 }
