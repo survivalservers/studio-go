@@ -1,0 +1,353 @@
+{
+	"docs_url": "https://studio.survivalservers.com/docs",
+	"pages": [
+		{
+			"slug": "get-started/quick-start",
+			"title": "Quick start",
+			"description": "Start your first game server from the command line with plain HTTPS calls, on Windows or Linux, for any engine.",
+			"url": "https://studio.survivalservers.com/docs/get-started/quick-start/"
+		},
+		{
+			"slug": "get-started/unreal",
+			"title": "Unreal Engine",
+			"description": "Package an Unreal Engine dedicated server for Windows or Linux, run it with no plugin, and make the optional calls with Unreal's HTTP module.",
+			"url": "https://studio.survivalservers.com/docs/get-started/unreal/"
+		},
+		{
+			"slug": "get-started/unity",
+			"title": "Unity",
+			"description": "Build a Unity dedicated server for Windows or Linux, run it with no plugin, and start a game server with one call.",
+			"url": "https://studio.survivalservers.com/docs/get-started/unity/"
+		},
+		{
+			"slug": "get-started/godot",
+			"title": "Godot",
+			"description": "Run a Godot headless server as a Linux image or a Windows zip, with optional calls to the local API.",
+			"url": "https://studio.survivalservers.com/docs/get-started/godot/"
+		},
+		{
+			"slug": "concepts/apps-builds-versions",
+			"title": "Apps, builds, versions",
+			"description": "How a server program becomes something you can start: an app holds builds, a version says how to run one, and a branch points at a version.",
+			"url": "https://studio.survivalservers.com/docs/concepts/apps-builds-versions/"
+		},
+		{
+			"slug": "concepts/game-servers",
+			"title": "Game servers",
+			"description": "The life of a game server for a match, from start to stopped: statuses, exit reasons, stops, time limits and crash restarts.",
+			"url": "https://studio.survivalservers.com/docs/concepts/game-servers/"
+		},
+		{
+			"slug": "concepts/ready-servers",
+			"title": "Ready servers",
+			"description": "When a game server is joinable at the reply because it was ready ahead of time, when it starts fresh, and how long each start takes.",
+			"url": "https://studio.survivalservers.com/docs/concepts/ready-servers/"
+		},
+		{
+			"slug": "concepts/persistent-servers",
+			"title": "Persistent servers",
+			"description": "Game servers that keep their saves, address and identity across restarts, for persistent and survival games.",
+			"url": "https://studio.survivalservers.com/docs/concepts/persistent-servers/"
+		},
+		{
+			"slug": "concepts/tiers-and-sizes",
+			"title": "Tiers and sizes",
+			"description": "The standard and high-frequency tiers, what each holds for your game server, vCPU and memory sizes, and how a size is billed.",
+			"url": "https://studio.survivalservers.com/docs/concepts/tiers-and-sizes/"
+		},
+		{
+			"slug": "concepts/game-profiles",
+			"title": "Game profiles",
+			"description": "Describe how to reach your game, its commands, settings and players once, in plain JSON that the panel, the API and your own tools read.",
+			"url": "https://studio.survivalservers.com/docs/concepts/game-profiles/"
+		},
+		{
+			"slug": "concepts/regions-and-placement",
+			"title": "Regions and placement",
+			"description": "How each game server gets its region and machine, from player pings, your preferences and where each version is ready.",
+			"url": "https://studio.survivalservers.com/docs/concepts/regions-and-placement/"
+		},
+		{
+			"slug": "concepts/logs-and-crash-dumps",
+			"title": "Logs, crash dumps and metrics",
+			"description": "What every game server leaves behind, how long each part is kept, and how to read it while it runs and after it stops.",
+			"url": "https://studio.survivalservers.com/docs/concepts/logs-and-crash-dumps/"
+		},
+		{
+			"slug": "game-server/environment-and-allocation",
+			"title": "Environment variables and allocation",
+			"description": "The GS_* variables and the allocation file every game server gets: its ports, its address and its match's settings, with no SDK.",
+			"url": "https://studio.survivalservers.com/docs/game-server/environment-and-allocation/"
+		},
+		{
+			"slug": "game-server/local-api",
+			"title": "The local API",
+			"description": "The HTTP calls a game server can make on its own machine: ready, its match, players, labels, frame times, stop and the shutdown notice.",
+			"url": "https://studio.survivalservers.com/docs/game-server/local-api/"
+		},
+		{
+			"slug": "game-server/windows-builds",
+			"title": "Windows builds",
+			"description": "Upload your Windows server zip as it is: what the machine gives it, how it is limited and stopped, and where its logs and crash dumps go.",
+			"url": "https://studio.survivalservers.com/docs/game-server/windows-builds/"
+		},
+		{
+			"slug": "game-server/linux-images",
+			"title": "Linux images",
+			"description": "Run your existing container image as it is: how to bring it, which ports to name, how it runs and stops, and where its logs go.",
+			"url": "https://studio.survivalservers.com/docs/game-server/linux-images/"
+		},
+		{
+			"slug": "game-server/test-locally",
+			"title": "Test on your own PC",
+			"description": "Run your game server on your own computer as our machines run it, with the command-line tool's dev command, before you upload a build.",
+			"url": "https://studio.survivalservers.com/docs/game-server/test-locally/"
+		},
+		{
+			"slug": "guides/build-with-ai",
+			"title": "Build with AI",
+			"description": "Give your AI coding tool our rules and a key, and let it upload your build, start game servers and read why one failed.",
+			"url": "https://studio.survivalservers.com/docs/guides/build-with-ai/"
+		},
+		{
+			"slug": "guides/upload-builds",
+			"title": "Upload builds",
+			"description": "Upload a large Windows build in resumable parts, or bring a Linux image, from your PC or your CI.",
+			"url": "https://studio.survivalservers.com/docs/guides/upload-builds/"
+		},
+		{
+			"slug": "guides/rollouts-and-rollbacks",
+			"title": "Roll out and roll back",
+			"description": "Ship a new version through a public test branch to live, and roll back with one call that puts the old version back.",
+			"url": "https://studio.survivalservers.com/docs/guides/rollouts-and-rollbacks/"
+		},
+		{
+			"slug": "guides/start-matches-from-your-backend",
+			"title": "Start from your backend",
+			"description": "The calls your game backend makes for each match: start, hand the address to players, then stop.",
+			"url": "https://studio.survivalservers.com/docs/guides/start-matches-from-your-backend/"
+		},
+		{
+			"slug": "guides/api-clients",
+			"title": "Call the API from code",
+			"description": "Call the API from your backend or tools with the HTTP client your language already has, with examples in TypeScript, Python, C# and Go.",
+			"url": "https://studio.survivalservers.com/docs/guides/api-clients/"
+		},
+		{
+			"slug": "guides/webhooks",
+			"title": "Webhooks",
+			"description": "Get signed HTTPS calls when game servers, persistent servers and builds change state, and check each signature.",
+			"url": "https://studio.survivalservers.com/docs/guides/webhooks/"
+		},
+		{
+			"slug": "guides/slack-and-discord",
+			"title": "Slack and Discord alerts",
+			"description": "Send alerts to a Slack or Discord channel and keep a live server status card in your players' Discord, with no backend to run.",
+			"url": "https://studio.survivalservers.com/docs/guides/slack-and-discord/"
+		},
+		{
+			"slug": "guides/back-up-and-restore",
+			"title": "Back up and restore",
+			"description": "Save folders, how long backups are kept, backups by hand, restores, undo and downloads.",
+			"url": "https://studio.survivalservers.com/docs/guides/back-up-and-restore/"
+		},
+		{
+			"slug": "guides/roll-back-after-a-bad-update",
+			"title": "Roll back a bad update",
+			"description": "Put many persistent servers back to before a moment: preview, try one first, then undo if you need to.",
+			"url": "https://studio.survivalservers.com/docs/guides/roll-back-after-a-bad-update/"
+		},
+		{
+			"slug": "guides/bring-your-saves",
+			"title": "Bring your saves",
+			"description": "Upload a zip of saves as a backup of a persistent server, then restore it.",
+			"url": "https://studio.survivalservers.com/docs/guides/bring-your-saves/"
+		},
+		{
+			"slug": "guides/files",
+			"title": "Read and replace files",
+			"description": "List and download the files of a running game server or persistent server, and put a file into a stopped one, with no remote desktop or SSH.",
+			"url": "https://studio.survivalservers.com/docs/guides/files/"
+		},
+		{
+			"slug": "guides/ai-agents",
+			"title": "AI agents",
+			"description": "Give Claude Code, Cursor or another AI tool only the permissions you pick, a time limit and a spending cap, and see everything it does.",
+			"url": "https://studio.survivalservers.com/docs/guides/ai-agents/"
+		},
+		{
+			"slug": "guides/command-line",
+			"title": "Command line",
+			"description": "Call the API from a terminal or a CI job with curl: start, read and stop game servers and follow their logs.",
+			"url": "https://studio.survivalservers.com/docs/guides/command-line/"
+		},
+		{
+			"slug": "guides/infrastructure-as-code",
+			"title": "Infrastructure as code",
+			"description": "Keep your apps, versions, branches, pools and webhook endpoints in your repo, reviewed like code and applied from CI.",
+			"url": "https://studio.survivalservers.com/docs/guides/infrastructure-as-code/"
+		},
+		{
+			"slug": "guides/own-machines",
+			"title": "Your own machines",
+			"description": "Run your game servers on machines you already have, with our agent, for $1 per usable vCPU a month.",
+			"url": "https://studio.survivalservers.com/docs/guides/own-machines/"
+		},
+		{
+			"slug": "guides/bulk-actions",
+			"title": "Bulk actions",
+			"description": "Send a command, change settings, restart or update hundreds of persistent servers in batches, with a dry run first and an undo after.",
+			"url": "https://studio.survivalservers.com/docs/guides/bulk-actions/"
+		},
+		{
+			"slug": "tasks/list-game-servers",
+			"title": "List game servers",
+			"description": "List the game servers running now in one app, with each one's region and players.",
+			"url": "https://studio.survivalservers.com/docs/tasks/list-game-servers/"
+		},
+		{
+			"slug": "tasks/get-a-server-address",
+			"title": "Get the join address",
+			"description": "Read a game server's IP address and game port, the address your players join.",
+			"url": "https://studio.survivalservers.com/docs/tasks/get-a-server-address/"
+		},
+		{
+			"slug": "tasks/start-a-match",
+			"title": "Start a match",
+			"description": "Start a game server for one match from your backend and get the address to send your players.",
+			"url": "https://studio.survivalservers.com/docs/tasks/start-a-match/"
+		},
+		{
+			"slug": "tasks/stop-a-game-server",
+			"title": "Stop a game server",
+			"description": "Stop a running game server, giving it time to save and quit first.",
+			"url": "https://studio.survivalservers.com/docs/tasks/stop-a-game-server/"
+		},
+		{
+			"slug": "tasks/send-a-game-command",
+			"title": "Send a game command",
+			"description": "Send a console line to one persistent server, such as kicking a player, and read what the game answered.",
+			"url": "https://studio.survivalservers.com/docs/tasks/send-a-game-command/"
+		},
+		{
+			"slug": "tasks/ban-on-every-server",
+			"title": "Ban a player everywhere",
+			"description": "Send one ban command to every persistent server of a game, with a dry run first.",
+			"url": "https://studio.survivalservers.com/docs/tasks/ban-on-every-server/"
+		},
+		{
+			"slug": "tasks/restart-one-at-a-time",
+			"title": "Restart one at a time",
+			"description": "Restart every persistent server of a game one by one, with a dry run first.",
+			"url": "https://studio.survivalservers.com/docs/tasks/restart-one-at-a-time/"
+		},
+		{
+			"slug": "tasks/show-players-by-region",
+			"title": "Show players by region",
+			"description": "Read how many players are online in each region, hour by hour, for a chart or a dashboard.",
+			"url": "https://studio.survivalservers.com/docs/tasks/show-players-by-region/"
+		},
+		{
+			"slug": "tasks/get-a-crash-webhook",
+			"title": "Get a crash webhook",
+			"description": "Have your backend called when a game server crashes, runs out of memory or fails to start.",
+			"url": "https://studio.survivalservers.com/docs/tasks/get-a-crash-webhook/"
+		},
+		{
+			"slug": "tasks/show-cost-this-month",
+			"title": "Show cost this month",
+			"description": "Read the vCPU-hours used this month, what they cost, and where the month is heading.",
+			"url": "https://studio.survivalservers.com/docs/tasks/show-cost-this-month/"
+		},
+		{
+			"slug": "tasks/read-a-crashed-server",
+			"title": "Read console lines",
+			"description": "Read the last console lines of a game server, while it runs or after it has crashed.",
+			"url": "https://studio.survivalservers.com/docs/tasks/read-a-crashed-server/"
+		},
+		{
+			"slug": "tasks/back-up-a-server",
+			"title": "Take a backup",
+			"description": "Take a backup of a persistent server now, before a risky change.",
+			"url": "https://studio.survivalservers.com/docs/tasks/back-up-a-server/"
+		},
+		{
+			"slug": "account/api-keys-and-roles",
+			"title": "API keys and roles",
+			"description": "Create API keys with only the scopes they need, and give each person in your studio the right role.",
+			"url": "https://studio.survivalservers.com/docs/account/api-keys-and-roles/"
+		},
+		{
+			"slug": "account/pricing",
+			"title": "Pricing",
+			"description": "What game servers, persistent servers, reserved capacity and your own machines cost, what is free, and how a monthly bill adds up.",
+			"url": "https://studio.survivalservers.com/docs/account/pricing/"
+		},
+		{
+			"slug": "account/uptime",
+			"title": "Uptime",
+			"description": "What we aim for today, the promises and credits to come, and how uptime is measured.",
+			"url": "https://studio.survivalservers.com/docs/account/uptime/"
+		},
+		{
+			"slug": "account/usage-and-invoices",
+			"title": "Usage and invoices",
+			"description": "Read what you use by app, region and rate class, set budget alerts, and read each month's invoice and credits.",
+			"url": "https://studio.survivalservers.com/docs/account/usage-and-invoices/"
+		},
+		{
+			"slug": "switching/from-gamelift",
+			"title": "Switching from GameLift",
+			"description": "Run a Linux server build that uses GameLift's server SDK with no changes to your code, and replace fleets and queues with one start call.",
+			"url": "https://studio.survivalservers.com/docs/switching/from-gamelift/"
+		},
+		{
+			"slug": "switching/from-playfab",
+			"title": "Switching from PlayFab",
+			"description": "Run a server build that uses PlayFab's GSDK: the machine answers as the PlayFab agent the GSDK talks to.",
+			"url": "https://studio.survivalservers.com/docs/switching/from-playfab/"
+		},
+		{
+			"slug": "switching/unity-matchmaker",
+			"title": "Unity Matchmaker",
+			"description": "Start a game server for every Unity Matchmaker match through a Cloud Code module, and move a queue off Multiplay hosting.",
+			"url": "https://studio.survivalservers.com/docs/switching/unity-matchmaker/"
+		},
+		{
+			"slug": "switching/from-edgegap",
+			"title": "Switching from Edgegap",
+			"description": "Point your Edgegap deployment calls at our address: deploy, status, stop and self-stop keep working, and your image keeps its ARBITRIUM variables.",
+			"url": "https://studio.survivalservers.com/docs/switching/from-edgegap/"
+		},
+		{
+			"slug": "switching/from-agones",
+			"title": "Switching from Agones",
+			"description": "Run a server build that uses the Agones SDK with no changes to your code: the machine answers as Agones' SDK server.",
+			"url": "https://studio.survivalservers.com/docs/switching/from-agones/"
+		},
+		{
+			"slug": "switching/from-gameye",
+			"title": "Switching from Gameye",
+			"description": "Point your backend's Gameye calls at our address: sessions, players, locations and logs keep working, and your image runs as it is.",
+			"url": "https://studio.survivalservers.com/docs/switching/from-gameye/"
+		},
+		{
+			"slug": "switching/from-hathora",
+			"title": "Switching from Hathora",
+			"description": "Point your Hathora SDK at our address: rooms, processes and connection info keep working, and your image runs as it is.",
+			"url": "https://studio.survivalservers.com/docs/switching/from-hathora/"
+		},
+		{
+			"slug": "help/get-help",
+			"title": "Get help",
+			"description": "How to reach our team.",
+			"url": "https://studio.survivalservers.com/docs/help/get-help/"
+		},
+		{
+			"slug": "help/glossary",
+			"title": "Glossary",
+			"description": "The words these docs use, each explained in one place.",
+			"url": "https://studio.survivalservers.com/docs/help/glossary/"
+		}
+	]
+}
