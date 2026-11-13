@@ -1,0 +1,17 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.survivalservers/survival-servers",
+  "title": "Survival Servers Studio",
+  "description": "Upload game server builds, start game servers and read why one failed, from your AI tool.",
+  "repository": {
+    "url": "https://github.com/survivalservers/studio-packages",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.example.com/mcp"
+    }
+  ]
+}
