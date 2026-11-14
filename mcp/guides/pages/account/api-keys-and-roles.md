@@ -81,6 +81,7 @@ Each game server gets its own `GS_TOKEN` for the [local API](https://studio.surv
 | `apps:read` | Read apps, builds, versions, branches, pools |
 | `apps:write` | Change apps, versions, branches and pools |
 | `builds:write` | Upload builds and push images |
+| `versions:write` | Make and change versions, but delete nothing |
 | `game_servers:read` | Read game servers and start times |
 | `game_servers:write` | Start and stop game servers |
 | `logs:read` | Logs, files, crash traces, metrics |
@@ -98,16 +99,19 @@ Each game server gets its own `GS_TOKEN` for the [local API](https://studio.surv
 | `machines:read` | Read your own machines |
 | `machines:write` | Add, enroll, change and remove them |
 | `studio:write` | The studio's name, icon and accent color |
+| `player_sessions:write` | Erase a player's sessions when they ask |
+| `players:write` | Make player passes for your players (not open yet) |
 
 - `game_servers:write` also reports players. `logs:read` also reads each game server's timeline.
 - `persistent_servers:write` also sends game commands and runs bulk actions. `persistent_servers:read` reads them.
+- `apps:write` includes everything `versions:write` allows. `versions:write` does not point branches.
 - `usage:read` also reads budget alerts. `billing:write` also opens the card page, from the panel only.
 - Crash dumps need the crash-dump permission, not a scope. Only owners and admins can have it, and only in the panel: no key ever reaches a dump. See [who can reach a dump](https://studio.survivalservers.com/docs/concepts/logs-and-crash-dumps/#who-can-reach-a-dump).
 
 Keys for common jobs:
 
 - A game backend: `game_servers:write` and `game_servers:read`.
-- A build pipeline (CI) that ships builds: `builds:write` and `apps:write`, plus `apps:read` to wait until a build is ready.
+- A build pipeline (CI) that ships builds: `builds:write` and `versions:write`, plus `apps:read` to wait until a build is ready. Add `apps:write` only if it also points a branch at the new version: `apps:write` can also delete apps.
 - A dashboard: the `:read` scopes for what it shows.
 
 ## Roles
@@ -125,7 +129,7 @@ curl -X POST "https://studio.survivalservers.com/v0/members/invitations" \
 - We email the person a link. It works once, for the invited email address, until `expires_at`, 7 days after the invitation. The person signs in, or signs up, with that address and opens the link.
 - Our emails do not reach inboxes yet. When an invitation is not emailed, the reply carries the link in `accept_url`, once, and the panel's invite dialog shows it with a copy button. Send it to the person yourself.
 - `DELETE /v0/members/invitations/{invitation}` cancels an invitation, and its link stops working at once.
-- `PATCH /v0/members/{user}` changes a role. `DELETE /v0/members/{user}` removes a member, and their panel sessions end at once.
+- `PATCH /v0/members/{user}` changes a role or the apps a member is limited to. `DELETE /v0/members/{user}` removes a member, and their panel sessions end at once.
 - These calls need the `members:write` scope.
 
 | Role | Can |
@@ -133,6 +137,7 @@ curl -X POST "https://studio.survivalservers.com/v0/members/invitations" \
 | `owner` | Everything, including owners and single sign-on |
 | `admin` | Everything except owners and single sign-on |
 | `developer` | Build, run and watch; read usage |
+| `operator` | Start, stop, restart, saved commands and backups |
 | `billing` | Usage, invoices, alerts and the card |
 | `viewer` | Read only: no keys, members or audit log |
 
@@ -140,9 +145,27 @@ The scopes each role gets:
 
 - `owner` and `admin` hold every scope. Only an owner can grant, change or remove the `owner` role, and only an owner can set single sign-on.
 - A studio always keeps one owner. Removing or changing the last one answers `409 invalid_state`.
-- `developer` holds every scope except `billing:write`, `keys:write`, `members:write`, `audit:read`, `machines:write` and `studio:write`.
+- `developer` holds every scope except `billing:write`, `keys:write`, `members:write`, `audit:read`, `machines:write`, `studio:write` and `player_sessions:write`.
+- `operator` holds the `viewer`'s scopes plus `game_servers:write` and `persistent_servers:write`, and uses them only to start and stop game servers, start, stop and restart persistent servers, send saved commands (with numbers and listed choices only), run saved bulk actions that restart or send a saved command, take backups, and pause, resume or cancel those bulk actions. Every other change answers `403 missing_scope`. An operator connects no AI tool and makes no key.
 - `billing` holds `usage:read` and `billing:write`.
 - `viewer` holds `apps:read`, `game_servers:read`, `logs:read`, `persistent_servers:read`, `webhooks:read`, `usage:read` and `machines:read`.
+
+### Limit a member to some apps
+
+```bash
+curl -X PATCH "https://studio.survivalservers.com/v0/members/$USER_ID" \
+  -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "apps": ["kingsmoor-linux"] }'
+```
+
+A developer, operator or viewer can be limited to some apps. They then see and change only those apps and what belongs to them, as a key limited to some apps does. Anything that covers the whole studio is refused (`403`): members, invoices, credits, budget alerts, settings, single sign-on and registry logins. An owner, admin or billing member is never limited.
+
+- `[]` lifts the limit.
+- The limit holds from the member's next call.
+- A limit is refused with `409 invalid_state` while a key the member made reaches beyond those apps; the answer names the keys. Revoke them first. The member's AI tool connections that reach beyond the apps are disconnected.
+- An invitation can carry a limit: add `apps` to `POST /v0/members/invitations`. It applies when the person accepts.
+- To make a limited member an owner, admin or billing member, send `"apps": []` in the same call.
 
 ## Two-factor authentication
 
@@ -155,7 +178,7 @@ Codes by text message are not offered yet. An owner's or admin's panel call with
 
 ## Single sign-on
 
-An owner can send your studio's people to your own company sign-in provider through OIDC or SAML (the two standard ways a company signs its people in), by their email domain. Open **Single sign-on** from the account menu. The page sends `PUT /v0/sso`, which works only from the panel and only for owners.
+An owner can send your studio's people to your own single sign-on provider through OIDC or SAML (the two standard ways a company signs its people in), by their email domain. Open **Single sign-on** from the account menu. The page sends `PUT /v0/sso`, which works only from the panel and only for owners.
 
 1. Save your provider and domains with single sign-on off:
 

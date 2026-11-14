@@ -28,6 +28,14 @@ POST /v0/persistent-servers
 - `save_paths` are the folders backups copy, and the only ones kept between runs. At least one is needed. For a Windows build they are relative to the build's top folder. For a Linux image they are absolute paths in the container, such as `/data/saves`. A Windows game that saves under its user profile (AppData or LocalLow, where Unity saves by default) shares those saves with your other game servers on that machine, and they are in no backup and do not move with the server. Point its saves into the build's folder with the game's own option ([Windows builds](https://studio.survivalservers.com/docs/game-server/windows-builds/)).
 - `"start": false` creates the server without starting it.
 
+### Copies of one
+
+`POST /v0/persistent-servers/{id}/copies` with `{"count": 3, "name": "EU PvE {n}", "regions": ["europe-central", "europe-west"]}` makes up to 20 new persistent servers with this one's settings: its app and branch (or version), size, settings that are not secret, launch arguments, labels, save folders, backups, restart schedule and pause when empty, in the regions you name, in turn.
+
+- Saves are not copied: each copy starts empty. To start one from a save, create it with `from_backup`.
+- Secret settings are not copied. The reply's `secrets_not_copied` names them, to set on each copy before it starts; copies stay stopped unless you send `"start": true`.
+- `"dry_run": true` answers each copy's name and region and makes nothing. The studio's limit on persistent servers is checked for all the copies at once.
+
 ## Start, stop and restart
 
 - `POST /v0/persistent-servers/{id}/stop` saves, takes a backup and ends billing. The server keeps its address.
@@ -56,7 +64,7 @@ PATCH /v0/persistent-servers/ps_e01JA8YQ3W5E7R9T1Y3U5I7O9P
 { "version": "2.0.2", "apply": "next_restart" }
 ```
 
-- `PATCH /v0/persistent-servers/{id}` changes `version` or `branch`, `size`, `env`, `args`, `labels`, `backup`, `restart` and `when_empty`. A stopped server also takes new `save_paths`; see [set the save folders](https://studio.survivalservers.com/docs/guides/back-up-and-restore/#set-the-save-folders).
+- `PATCH /v0/persistent-servers/{id}` changes `version` or `branch`, `size`, `env`, `args`, `labels`, `backup`, `restart` and `when_empty`. A stopped server also takes new `save_paths` and `save_files`; see [set the save folders](https://studio.survivalservers.com/docs/guides/back-up-and-restore/#set-the-save-folders).
 - A new version is copied to the server's machine before it is applied.
 - A running server takes it at its next restart (`"apply": "next_restart"`, the default). `"apply": "now"` restarts it gracefully now. A stopped server takes it at once.
 - A new version starts only once the backup taken at the stop is stored, as a `before_update` backup kept for 30 days. If it cannot be stored, the server starts again on its old version and the new one waits for its next restart. See [the backup before an update](https://studio.survivalservers.com/docs/guides/back-up-and-restore/#the-backup-before-an-update).
@@ -138,6 +146,7 @@ About 10 minutes into a pause, the same answer took 16.5 to 21 ms on Valheim and
 ## Backups
 
 - Backups copy the server's `save_paths` every `backup.every` while it runs, at every stop, and when you ask with `POST /v0/persistent-servers/{id}/backups`.
+- `save_files` names single files kept between runs and copied into every backup beside the save folders, such as `/data/server.properties` next to `/data/world`, for Linux images for now. Each is one entry at its own path in a backup, and a restore writes it only when the backup has it. On its first run a file is the image's own copy, or empty when the image has none. A game that saves such a file by renaming a new file over it cannot do that here: keep that file in a save folder.
 - `backup.every` is 1 minute to 24 hours. The default is 10 minutes.
 - `keep_for` is `7d`, `30d` (the default) or `1y`.
 - `30d` keeps one backup per 10 minutes for 6 hours, one per hour for 2 days and one per day for 30 days.

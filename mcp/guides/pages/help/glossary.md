@@ -71,7 +71,7 @@ Each term is the name the API, the panel and these docs use for it.
 - **Shared settings**: environment variables, launch arguments, config files and game settings applied to many persistent servers at once (a config set in the API).
 - **Shutdown notice**: what a game server reads from `GET /v0/self/shutdown` when it is asked to stop, with the deadline to save by.
 - **Shutdown time**: how long a game server has to save and exit after a stop before it is killed (`shutdown_time` in the API). The default is 30 seconds.
-- **Single sign-on**: signing your people in to the panel through your own company sign-in provider, over OIDC or SAML (the two standards for it).
+- **Single sign-on**: signing your people in to the panel through your company's own sign-in provider, over OIDC or SAML (the two standards for it).
 - **Standard**: the tier for most games, from 0.25 vCPU in steps of 0.25.
 - **Start time**: the time from the start call to the reply with the address.
 - **Status card**: one Discord message for your players that we keep current: region status, your version, the persistent servers you choose. Not run on real machines yet.

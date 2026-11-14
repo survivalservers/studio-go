@@ -14,7 +14,7 @@ Today we aim for 99.5% uptime each month (about 3.6 hours down) and give no upti
 - The API promise covers calls made directly or through the panel.
 - It also covers calls made through survivalservers and the MCP server.
 - A start is a request to start a game server or a persistent server. It is on time when the address comes back within 5 seconds.
-- The promises cover the regions where `GET /v0/regions` shows `sla_eligible: true`.
+- The promises cover the regions where `GET /v0/regions` shows `sla_eligible: true`. A region leaving them shows the day in `sla_ends_at`, set at least 30 days ahead, on the 1st of a month.
 - They do not cover game servers on your own machines, or backups and storage.
 
 ## Credits

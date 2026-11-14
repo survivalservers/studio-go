@@ -19,7 +19,8 @@ survivalservers mcp --http 127.0.0.1:8080    # hosted: MCP over HTTP at /mcp, he
 ```
 
 **Local** (`GS_API_KEY` in the environment, never on the command line: `survivalservers mcp` refuses a key passed as
-an argument). It can read the zip the agent names and upload it in parts. Settings:
+an argument). It can read the zip the agent names and upload only the chunks of its files your studio does not hold
+yet (the whole zip in parts where the API does not take chunks). Settings:
 
 | Variable | Default | |
 |---|---|---|
@@ -114,3 +115,21 @@ real zips through storage links and runs the hosted upload script; never point i
 It ships inside the command-line tool's release builds (`../cli/release.sh`), as `survivalservers mcp`: one program
 and one name. In an AI tool's server list it is `survival-servers`, and its title is "Survival Servers Studio".
 `server.json` is the MCP Registry's entry for the hosted server.
+
+## Claude Code plugin
+
+`plugin/` is a Claude Code plugin marketplace with one plugin, `survival-servers`. It starts this program's `mcp`
+command with the API key the developer types into the plugin's settings (Claude Code keeps it in the computer's own
+secure store), and carries the rules file for AI tools as a skill. It needs `survivalservers` on the computer's path.
+
+Claude Code adds a marketplace from a repository's top folder, and this one sits in `mcp/plugin/` of
+github.com/survivalservers/studio-go, so add it from a copy on your computer:
+
+```bash
+git clone https://github.com/survivalservers/studio-go
+claude plugin marketplace add ./studio-go/mcp/plugin
+claude plugin install survival-servers@survival-servers
+```
+
+Inside a Claude Code session, `/plugin marketplace add ./studio-go/mcp/plugin` does the same. After a
+`git -C studio-go pull`, the next session loads the newer plugin.

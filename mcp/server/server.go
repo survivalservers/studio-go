@@ -23,7 +23,7 @@ import (
 )
 
 // Version is this server's version, sent to clients and in the API's User-Agent.
-var Version = "0.1.0"
+var Version = "0.1.1"
 
 // Config is how one server behaves. Local servers run on the developer's computer (stdio) and may read the
 // files the agent names; hosted servers (HTTP) never touch a disk and take the key from each request.
@@ -136,7 +136,7 @@ type srv struct {
 
 // New returns the MCP server for cfg.
 func New(cfg Config) (*mcp.Server, error) {
-	client, err := api.New(cfg.APIURL, cfg.Key, cfg.HTTPClient, "survivalservers-mcp/"+Version)
+	client, err := api.New(cfg.APIURL, cfg.Key, withApprovalHeader(cfg.HTTPClient), "survivalservers-mcp/"+Version)
 	if err != nil {
 		return nil, err
 	}
@@ -473,4 +473,45 @@ func jsonText(v any) string {
 		return fmt.Sprint(v)
 	}
 	return string(data)
+}
+
+// approvalKey carries an AI agent's approved request ("Ask me first") on a call's context.
+type approvalKey struct{}
+
+// withApproval makes a call that carries the approved request id as the Approval header: the same call made again once
+// a member said yes. Empty: the call as it is.
+func withApproval(ctx context.Context, id string) context.Context {
+	if id == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, approvalKey{}, id)
+}
+
+// approvalTransport sets the Approval header from the request's context. It sits in this server's own HTTP client, so
+// every call a tool makes with that context carries it, whatever helper of the API client makes the call.
+type approvalTransport struct{ base http.RoundTripper }
+
+func (t approvalTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	if id, _ := r.Context().Value(approvalKey{}).(string); id != "" {
+		r = r.Clone(r.Context())
+		r.Header.Set("Approval", id)
+	}
+	return t.base.RoundTrip(r)
+}
+
+// withApprovalHeader is the HTTP client for API calls with approvalTransport in it: a copy of the one given (tests), or
+// the API client's own default (AnswerTimeout, redirects not followed). This server opens no streams.
+func withApprovalHeader(hc *http.Client) *http.Client {
+	var c http.Client
+	if hc != nil {
+		c = *hc
+	} else {
+		c = http.Client{Timeout: api.AnswerTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	}
+	base := c.Transport
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	c.Transport = approvalTransport{base: base}
+	return &c
 }

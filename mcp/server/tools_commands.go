@@ -37,6 +37,7 @@ type sendCommandIn struct {
 	Args      map[string]string `json:"args,omitempty" jsonschema:"the game command's arguments by name, values as strings"`
 	Line      string            `json:"line,omitempty" jsonschema:"instead of command_id, a line to send as it is"`
 	Via       string            `json:"via,omitempty" jsonschema:"with line: a connection in the game profile; default console"`
+	Approval  string            `json:"approval,omitempty" jsonschema:"only after approval_required: the request's ID (apr_...), once a member said yes in the panel"`
 }
 
 type serverIn struct {
@@ -75,7 +76,8 @@ type planBulkIn struct {
 }
 
 type runBulkIn struct {
-	PlanID string `json:"plan_id" jsonschema:"the plan_id from plan_bulk_action"`
+	PlanID   string `json:"plan_id" jsonschema:"the plan_id from plan_bulk_action"`
+	Approval string `json:"approval,omitempty" jsonschema:"only after approval_required: the request's ID (apr_...), once a member said yes in the panel"`
 }
 
 type bulkActionIn struct {
@@ -210,7 +212,7 @@ func (s *srv) addCommandTools(server *mcp.Server) {
 				body["args"] = in.Args
 			}
 			var out map[string]any
-			if err := s.client.JSON(ctx, api.Call{Method: http.MethodPost, Path: path + "/command", Body: body, IdempotencyKey: api.NewIdempotencyKey()}, &out); err != nil {
+			if err := s.client.JSON(withApproval(ctx, in.Approval), api.Call{Method: http.MethodPost, Path: path + "/command", Body: body, IdempotencyKey: api.NewIdempotencyKey()}, &out); err != nil {
 				return nil, err
 			}
 			if d, _ := out["delivered"].(bool); !d {
@@ -346,7 +348,7 @@ func (s *srv) addCommandTools(server *mcp.Server) {
 				return nil, fmt.Errorf("the servers it reaches changed since the plan; call plan_bulk_action again. Now: %s", planText(plan))
 			}
 			var out map[string]any
-			if err := s.client.JSON(ctx, api.Call{Method: http.MethodPost, Path: bulkPaths[p.Action], Body: p.Body, IdempotencyKey: api.NewIdempotencyKey()}, &out); err != nil {
+			if err := s.client.JSON(withApproval(ctx, in.Approval), api.Call{Method: http.MethodPost, Path: bulkPaths[p.Action], Body: p.Body, IdempotencyKey: api.NewIdempotencyKey()}, &out); err != nil {
 				return nil, err
 			}
 			op := obj(out["bulk_action"])
