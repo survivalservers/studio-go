@@ -453,7 +453,9 @@ func (s *aiSetup) tomlServer(tool, file string) aiChange {
 			text += "\n\n"
 		}
 		if s.local {
-			text += fmt.Sprintf("[mcp_servers.%s]\ncommand = %q\nargs = [\"mcp\"]\nenv = { GS_API_URL = %q }\n", name, localCommand, localAPIURL)
+			// Codex hands a server it starts only a short list of its own environment (HOME, PATH, USER and a few more),
+			// so GS_API_KEY reaches the local server only when env_vars names it.
+			text += fmt.Sprintf("[mcp_servers.%s]\ncommand = %q\nargs = [\"mcp\"]\nenv = { GS_API_URL = %q }\nenv_vars = [\"GS_API_KEY\"]\n", name, localCommand, localAPIURL)
 		} else {
 			text += fmt.Sprintf("[mcp_servers.%s]\nurl = %q\n", name, s.url)
 		}

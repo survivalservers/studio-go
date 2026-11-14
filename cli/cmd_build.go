@@ -217,14 +217,22 @@ func (c *ctxt) upload(ctx context.Context, app, zip string) (map[string]any, err
 	}
 	fmt.Fprintf(c.env.Stderr, "uploading %s (%s)\n", info.Filename, sizeText(info.Bytes))
 	first := true
-	return cl.UploadZip(ctx, app, zip, api.UploadOptions{Storage: c.env.Storage, IdempotencyKey: c.idemFor(http.MethodPost),
+	// Only the chunks the studio's store lacks are sent; an API that does not take them gets the zip whole.
+	return cl.UploadChunks(ctx, app, zip, api.UploadOptions{Storage: c.env.Storage, IdempotencyKey: c.idemFor(http.MethodPost),
 		ResumeDir: c.uploadRecords(),
 		OnPart: func(p api.UploadProgress) {
 			if first && p.Resumed > 0 {
 				fmt.Fprintf(c.env.Stderr, "  carrying on: %s was sent by an earlier run\n", sizeText(p.Resumed))
 			}
+			if first && p.Chunks {
+				fmt.Fprintf(c.env.Stderr, "  %d new chunks to send (%s); your studio holds the rest\n", p.TotalParts, sizeText(p.TotalBytes))
+			}
 			first = false
-			fmt.Fprintf(c.env.Stderr, "  part %d of %d%s\n", p.Parts, p.TotalParts, speedText(p))
+			what := "part"
+			if p.Chunks {
+				what = "chunk"
+			}
+			fmt.Fprintf(c.env.Stderr, "  %s %d of %d%s\n", what, p.Parts, p.TotalParts, speedText(p))
 		}})
 }
 
