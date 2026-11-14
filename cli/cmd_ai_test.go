@@ -135,7 +135,7 @@ func TestAISetupOnThisComputer(t *testing.T) {
 	if got := vs.Servers[api.SkillName]; got.Type != "stdio" || got.Command != "survivalservers" || got.Env["GS_API_URL"] != localAPIURL {
 		t.Errorf("VS Code's entry: %+v", got)
 	}
-	if got, want := readText(t, filepath.Join(home, ".codex", "config.toml")), "[mcp_servers.survival-servers]\ncommand = \"survivalservers\"\nargs = [\"mcp\"]\nenv = { GS_API_URL = \""+localAPIURL+"\" }\n"; got != want {
+	if got, want := readText(t, filepath.Join(home, ".codex", "config.toml")), "[mcp_servers.survival-servers]\ncommand = \"survivalservers\"\nargs = [\"mcp\"]\nenv = { GS_API_URL = \""+localAPIURL+"\" }\nenv_vars = [\"GS_API_KEY\"]\n"; got != want {
 		t.Errorf("Codex's table: %q", got)
 	}
 	for _, f := range []string{".claude/skills/survival-servers/SKILL.md", ".agents/skills/survival-servers/SKILL.md"} {
@@ -305,7 +305,7 @@ func TestAISetupProject(t *testing.T) {
 		".mcp.json":          `"survival-servers": {"type":"stdio","command":"survivalservers","args":["mcp"],"env":{"GS_API_URL":"` + localAPIURL + `"}}`,
 		".cursor/mcp.json":   `"survival-servers": {"command":"survivalservers","args":["mcp"],"env":{"GS_API_URL":"` + localAPIURL + `"}}`,
 		".vscode/mcp.json":   `"servers": {` + "\n" + `    "survival-servers": {"type":"stdio","command":"survivalservers"`,
-		".codex/config.toml": "model = \"x\"\n\n[mcp_servers.survival-servers]\ncommand = \"survivalservers\"\nargs = [\"mcp\"]\nenv = { GS_API_URL = \"" + localAPIURL + "\" }\n",
+		".codex/config.toml": "model = \"x\"\n\n[mcp_servers.survival-servers]\ncommand = \"survivalservers\"\nargs = [\"mcp\"]\nenv = { GS_API_URL = \"" + localAPIURL + "\" }\nenv_vars = [\"GS_API_KEY\"]\n",
 		"AGENTS.md":          "# My game\n\nBuild with make.\n\n" + rulesStart + "\n\n# Survival Servers Studio",
 		".claude/skills/survival-servers/SKILL.md": "name: survival-servers",
 	} {
@@ -379,8 +379,51 @@ func TestAISetupHostedOnceTheAddressIsReal(t *testing.T) {
 	}
 }
 
-// The key reaches the local server only through GS_API_KEY in its environment. No file
-// setup writes, in either mode, ever holds a key or a key field, and setup refuses an MCP address that carries one.
+// codexKeyLine is the one settings line that may name GS_API_KEY: Codex hands a server it starts only a short list of
+// its own environment, so its table lets GS_API_KEY through by name. It names the variable and never holds a value.
+const codexKeyLine = `env_vars = ["GS_API_KEY"]`
+
+// settingsKeyField is the first key field in a settings file's text, with Codex's one env_vars line (exactly as
+// written, in Codex's config.toml only) left out; "" when there is none.
+func settingsKeyField(path, text string) string {
+	keyField := regexp.MustCompile(`(?i)GS_API_KEY|api[_-]?key|authorization|bearer|token|secret`)
+	if filepath.Base(path) == "config.toml" && filepath.Base(filepath.Dir(path)) == ".codex" {
+		var kept []string
+		for _, l := range strings.Split(text, "\n") {
+			if l != codexKeyLine {
+				kept = append(kept, l)
+			}
+		}
+		text = strings.Join(kept, "\n")
+	}
+	return keyField.FindString(text)
+}
+
+func TestSettingsKeyFieldLetsOnlyCodexsEnvVarsLineThrough(t *testing.T) {
+	table := "[mcp_servers.survival-servers]\ncommand = \"survivalservers\"\nargs = [\"mcp\"]\n"
+	codex := filepath.Join("home", ".codex", "config.toml")
+	if m := settingsKeyField(codex, table+codexKeyLine+"\n"); m != "" {
+		t.Errorf("Codex's env_vars line was taken for a key field: %q", m)
+	}
+	for why, c := range map[string][2]string{
+		"a value":                  {codex, table + "env = { GS_API_KEY = \"gsk_live_EXAMPLE_not_a_real_key\" }\n"},
+		"a value beside the line":  {codex, table + codexKeyLine + "\nenv = { GS_API_KEY = \"x\" }\n"},
+		"a key field":              {codex, table + codexKeyLine + "\napi_key = \"x\"\n"},
+		"a bearer token field":     {codex, table + "bearer_token_env_var = \"X\"\n"},
+		"another name in the list": {codex, table + "env_vars = [\"GS_API_KEY\", \"GS_SECRET\"]\n"},
+		"the line with more on it": {codex, table + codexKeyLine + " # more\n"},
+		"the line in another file": {filepath.Join("home", ".cursor", "mcp.json"), codexKeyLine + "\n"},
+		"the line in another toml": {filepath.Join("home", "other", "config.toml"), codexKeyLine + "\n"},
+	} {
+		if settingsKeyField(c[0], c[1]) == "" {
+			t.Errorf("%s was let through", why)
+		}
+	}
+}
+
+// The key reaches the local server only through GS_API_KEY in its environment. No file setup writes, in either mode,
+// ever holds a key or a key field (Codex's table names the variable in env_vars, never a value), and setup refuses an
+// MCP address that carries one.
 func TestAISetupNeverWritesAKey(t *testing.T) {
 	// A key's shape, in any file; a key's field, in the settings files and the commands run. (The rules file tells an
 	// agent to send the key in an Authorization header and names GS_API_KEY in examples: that is not a key.)
@@ -397,7 +440,7 @@ func TestAISetupNeverWritesAKey(t *testing.T) {
 				t.Errorf("%s holds %q", path, m)
 			}
 			if ext := filepath.Ext(path); ext == ".json" || ext == ".toml" {
-				if m := keyField.FindString(text); m != "" {
+				if m := settingsKeyField(path, text); m != "" {
 					t.Errorf("the settings file %s holds %q", path, m)
 				}
 			}

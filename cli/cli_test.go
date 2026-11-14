@@ -15,7 +15,9 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"slices"
 	"strconv"
@@ -136,6 +138,38 @@ func gs(id, status string) map[string]any {
 	return map[string]any{"id": id, "status": status, "region": "us-central", "continent": "north-america", "version": "1.0.0", "os": "windows", "start_mode": "cold",
 		"address": map[string]any{"ipv4": "203.0.113.24", "ports": map[string]any{"game": map[string]any{"port": 31042, "protocol": "udp"}}},
 		"players": map[string]any{"count": 0}}
+}
+
+// The version a copy built from source prints (go install) is the one its release carries: the newest version in
+// CHANGELOG.md. A release adds its section and moves Version in the same change.
+func TestVersionIsTheChangelogsNewest(t *testing.T) {
+	b, err := os.ReadFile("CHANGELOG.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := regexp.MustCompile(`(?m)^## (\d+\.\d+\.\d+)\b`).FindSubmatch(b)
+	if m == nil {
+		t.Fatal(`CHANGELOG.md has no "## X.Y.Z" heading`)
+	}
+	if string(m[1]) != Version {
+		t.Errorf("Version is %q, but CHANGELOG.md's newest version is %q: move them together", Version, m[1])
+	}
+}
+
+// release.sh refuses to stamp a release version that is not CHANGELOG.md's newest, before it builds anything. A
+// version with a suffix (a check build such as 0.0.0-check) is not a release and is built as asked.
+func TestReleaseRefusesAnotherVersion(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("release.sh is a bash script; release builds run on Linux")
+	}
+	_, had := os.Stat("dist")
+	out, err := exec.Command("bash", "release.sh", "9.9.9").CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "CHANGELOG.md's newest version is "+Version) {
+		t.Fatalf("release.sh 9.9.9: %v\n%s", err, out)
+	}
+	if _, err := os.Stat("dist"); had != nil && err == nil {
+		t.Error("release.sh made dist/ before it refused")
+	}
 }
 
 func TestCommandLine(t *testing.T) {
@@ -1061,5 +1095,97 @@ func TestAPIAddress(t *testing.T) {
 	r.must(t, 1, "is not an http(s) address")
 	if len(urls) != 0 {
 		t.Errorf("a malformed address still called %v", urls)
+	}
+}
+
+// builds upload sends a Windows build as only the chunks the studio's store lacks: the file list first, then a link
+// asked for each missing chunk, then complete with {}. The same build again sends no chunk at all.
+func TestBuildsUploadSendsOnlyTheChunksTheStudioLacks(t *testing.T) {
+	f := newFake(t)
+	dir := t.TempDir()
+	zipPath := filepath.Join(dir, "BrawlServer.zip")
+	program := make([]byte, 6<<20)
+	for i := range program {
+		program[i] = byte(i*7919 + i/4093) // varied bytes, so the store cuts several chunks
+	}
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	w, _ := zw.Create("WindowsServer/BrawlServer.exe")
+	w.Write(program)
+	zw.Close()
+	os.WriteFile(zipPath, buf.Bytes(), 0o600)
+
+	var mu sync.Mutex
+	held, puts := map[string]bool{}, map[string]int{}
+	storage := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		data, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		defer mu.Unlock()
+		puts[r.URL.Path]++
+		if name, ok := strings.CutPrefix(r.URL.Path, "/chunk/"); ok {
+			if sum := sha256.Sum256(data); hex.EncodeToString(sum[:]) != name {
+				t.Errorf("chunk %s sent with other bytes", name)
+			}
+		}
+		if r.Header.Get("Authorization") != "" {
+			t.Error("the key never goes to storage")
+		}
+	}))
+	t.Cleanup(storage.Close)
+	f.json("GET /v0/apps/brawl", 200, appWin)
+	f.on("POST /v0/apps/brawl/builds", func(_ *http.Request, b map[string]any) (int, any) {
+		if src, _ := b["source"].(map[string]any); src["chunks"] == nil {
+			t.Errorf("the build was not sent as chunks: %v", b)
+		}
+		return 201, map[string]any{"id": "bld_c", "app": "app_w", "status": "awaiting_upload",
+			"upload": map[string]any{"part_bytes": 0, "parts": []any{}, "list": map[string]any{"url": storage.URL + "/list"}}}
+	})
+	f.on("POST /v0/builds/bld_c/chunks", func(_ *http.Request, b map[string]any) (int, any) {
+		mu.Lock()
+		defer mu.Unlock()
+		links := []any{}
+		for _, c := range b["chunks"].([]any) {
+			name := c.(map[string]any)["sha256"].(string)
+			if !held[name] {
+				links = append(links, map[string]any{"sha256": name, "url": storage.URL + "/chunk/" + name,
+					"expires_at": time.Now().Add(time.Hour).UTC().Format(time.RFC3339)})
+			}
+		}
+		return 200, map[string]any{"links": links}
+	})
+	f.on("POST /v0/builds/bld_c/complete", func(_ *http.Request, b map[string]any) (int, any) {
+		if len(b) != 0 {
+			t.Errorf("a chunk build completes with {}, got %v", b)
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		for p := range puts {
+			if name, ok := strings.CutPrefix(p, "/chunk/"); ok {
+				held[name] = true
+			}
+		}
+		return 202, map[string]any{"id": "bld_c", "app": "app_w", "status": "processing"}
+	})
+
+	r := f.runEnvWithStorage(t, storage.Client(), "builds", "upload", "brawl", zipPath)
+	r.must(t, 0, "Build bld_c uploaded (processing).", "new chunks to send", "chunk 1 of")
+	mu.Lock()
+	sent := len(held)
+	if puts["/list"] != 1 || sent < 2 {
+		t.Errorf("the file list once and every chunk: list %d, chunks %d", puts["/list"], sent)
+	}
+	mu.Unlock()
+
+	r = f.runEnvWithStorage(t, storage.Client(), "builds", "upload", "brawl", zipPath)
+	r.must(t, 0, "Build bld_c uploaded (processing).")
+	mu.Lock()
+	defer mu.Unlock()
+	for p, n := range puts {
+		if strings.HasPrefix(p, "/chunk/") && n != 1 {
+			t.Errorf("the same build again sent %s %d times", p, n)
+		}
+	}
+	if puts["/list"] != 2 || len(f.called("POST", "/v0/builds/bld_c/complete")) != 2 {
+		t.Errorf("the second upload sends its list and completes: list %d", puts["/list"])
 	}
 }

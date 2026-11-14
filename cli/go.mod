@@ -6,9 +6,9 @@ go 1.25.0
 toolchain go1.27.3
 
 require (
-	github.com/survivalservers/studio-go v0.1.1
+	github.com/survivalservers/studio-go v0.1.2
 	github.com/survivalservers/studio-go/localapi v0.1.0
-	github.com/survivalservers/studio-go/mcp v0.1.0
+	github.com/survivalservers/studio-go/mcp v0.1.1
 )
 
 require (

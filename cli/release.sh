@@ -9,6 +9,15 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 version="${1:?usage: ./release.sh VERSION}"
+# A release version (X.Y.Z) is CHANGELOG.md's newest, the one cli.go's Version holds (its test keeps them equal), so the
+# released program and a copy installed with go install from the module's cli/vX.Y.Z tag print the same. A version
+# with a suffix (a check build such as 0.0.0-check) is not a release and is built as asked.
+newest=$(sed -n 's/^## \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)\([^0-9.].*\)\{0,1\}$/\1/p' CHANGELOG.md | head -n 1)
+if [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && $version != "$newest" ]]; then
+	echo "release.sh: $version is not a version to release: CHANGELOG.md's newest version is $newest." >&2
+	echo "Add the release's section to CHANGELOG.md and set cli.go's Version to it in the same change, or build $newest." >&2
+	exit 1
+fi
 name=survivalservers
 pkg=./cmd/survivalservers
 stamp=github.com/survivalservers/studio-go/cli.Version

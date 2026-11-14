@@ -23,8 +23,10 @@ import (
 	api "github.com/survivalservers/studio-go"
 )
 
-// Version is this tool's version.
-var Version = "0.1.0"
+// Version is this tool's version: the newest one in CHANGELOG.md (TestVersionIsTheChangelogsNewest keeps them equal).
+// release.sh stamps the same number and refuses any other, so a copy installed with go install from the module's
+// cli/vX.Y.Z tag and the released program X.Y.Z say the same.
+var Version = "0.1.2"
 
 // Exit codes.
 const (

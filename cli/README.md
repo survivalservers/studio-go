@@ -45,10 +45,15 @@ builds in the MCP server (`../mcp`) and the local API (`../localapi`), each wire
 ## Release builds
 
 ```bash
-./release.sh 0.1.0     # dist/survivalservers_0.1.0_<os>_<arch>.tar.gz (.zip for Windows) and dist/SHA256SUMS
+./release.sh 0.1.2     # dist/survivalservers_0.1.2_<os>_<arch>.tar.gz (.zip for Windows) and dist/SHA256SUMS
 ```
 
 Linux, macOS and Windows, each on x86-64 and ARM: static programs with the version stamped in, built so the same
 commit always gives byte-identical archives. They are not code-signed. On macOS a downloaded copy is allowed once
 under System Settings, Privacy and Security (or `xattr -d com.apple.quarantine survivalservers`); on Windows, SmartScreen's
 "More info", then "Run anyway". Check a download against `SHA256SUMS`.
+
+The version is the newest one in `CHANGELOG.md`, which `Version` in `cli.go` also holds (a test keeps them equal), and
+`release.sh` refuses any other. So the X.Y.Z download and a copy from
+`go install github.com/survivalservers/studio-go/cli/cmd/survivalservers@vX.Y.Z` (the module's `cli/vX.Y.Z` tag) print
+the same version.
