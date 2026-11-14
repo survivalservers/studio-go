@@ -994,3 +994,23 @@ func TestCommandsAndBulkActions(t *testing.T) {
 	limited := f.session(t, Config{Key: key, Apps: []string{"other"}})
 	mustFail(t, limited, "plan_bulk_action", map[string]any{"action": "command", "selector": map[string]any{"regions": []string{"us-east"}}, "command_id": "save"}, "selector.app")
 }
+
+// "Ask me first": a stop made again with the approved request's ID sends it as the Approval header, through this
+// server's own HTTP client, so every API call made with a context carries it; without one, no header.
+func TestApprovalGoesAsItsHeader(t *testing.T) {
+	f := newFakeAPI(t)
+	var approvals []string
+	f.on("GET /v0/game-servers/gs_a1", func(*http.Request, map[string]any) (int, any) {
+		return 200, map[string]any{"id": "gs_a1", "status": "running", "app": "app_1"}
+	})
+	f.on("POST /v0/game-servers/gs_a1/stop", func(r *http.Request, _ map[string]any) (int, any) {
+		approvals = append(approvals, r.Header.Get("Approval"))
+		return 200, map[string]any{"id": "gs_a1", "status": "stopping"}
+	})
+	cs := f.session(t, Config{Key: key, Local: true})
+	mustOK(t, cs, "stop_game_server", map[string]any{"id": "gs_a1"})
+	mustOK(t, cs, "stop_game_server", map[string]any{"id": "gs_a1", "approval": "apr_g01JB3C5D7E9F1G3H5J7K9M1N3"})
+	if len(approvals) != 2 || approvals[0] != "" || approvals[1] != "apr_g01JB3C5D7E9F1G3H5J7K9M1N3" {
+		t.Fatalf("Approval headers sent: %q", approvals)
+	}
+}

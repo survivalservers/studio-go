@@ -116,6 +116,7 @@ var aiNextStep = map[string]string{
 	"key_restricted":    "use an app the key allows; never ask the developer to paste another key into the chat.",
 	"version_not_ready": "wait_for_version waits for it.",
 	"unknown_region":    "list_regions lists them.",
+	"approval_required": "tell the developer what you asked and that a member says yes on the panel's AI agents page; once they have, call the same tool again with the same arguments and approval set to the request's ID (apr_...).",
 }
 
 // errNoKeyLocal is the local server's answer to a call without a key: it reads GS_API_KEY from its own environment.

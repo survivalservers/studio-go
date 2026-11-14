@@ -4,10 +4,11 @@
   "title": "Survival Servers Studio",
   "description": "Upload game server builds, start game servers and read why one failed, from your AI tool.",
   "repository": {
-    "url": "https://github.com/survivalservers/studio-packages",
-    "source": "github"
+    "url": "https://github.com/survivalservers/studio-go",
+    "source": "github",
+    "subfolder": "mcp"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "remotes": [
     {
       "type": "streamable-http",

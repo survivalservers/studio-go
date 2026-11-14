@@ -97,6 +97,7 @@ type stopPersistentServerIn struct {
 	ID          string `json:"id" jsonschema:"the persistent server's ID"`
 	Grace       string `json:"shutdown_time,omitempty" jsonschema:"time to save and exit before it is killed, for example 60s"`
 	WaitSeconds *int   `json:"wait_seconds,omitempty" jsonschema:"how long to wait for it to be stopped: 0 returns at once; default 180, at most 900"`
+	Approval    string `json:"approval,omitempty" jsonschema:"only after approval_required: the request's ID (apr_...), once a member said yes in the panel"`
 }
 
 type listPersistentServersIn struct {
@@ -280,7 +281,7 @@ func (s *srv) addPersistentServerTools(server *mcp.Server) {
 			body := map[string]any{}
 			setIf(body, "shutdown_time", in.Grace)
 			var p map[string]any
-			if err := s.client.JSON(ctx, api.Call{Method: http.MethodPost, Path: persistentServerPath(in.ID) + "/stop", Body: body}, &p); err != nil {
+			if err := s.client.JSON(withApproval(ctx, in.Approval), api.Call{Method: http.MethodPost, Path: persistentServerPath(in.ID) + "/stop", Body: body}, &p); err != nil {
 				return nil, err
 			}
 			p = s.settlePersistentServer(ctx, req, p, in.WaitSeconds)

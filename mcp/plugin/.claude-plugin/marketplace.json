@@ -1,0 +1,11 @@
+{
+  "name": "survival-servers",
+  "owner": { "name": "Survival Servers" },
+  "plugins": [
+    {
+      "name": "survival-servers",
+      "source": "./survival-servers",
+      "description": "Run your game's dedicated servers on Survival Servers Studio from Claude Code, with our rules for AI tools."
+    }
+  ]
+}

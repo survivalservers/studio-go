@@ -1,0 +1,27 @@
+{
+  "name": "survival-servers",
+  "displayName": "Survival Servers Studio",
+  "version": "0.1.1",
+  "description": "Run your game's dedicated servers on Survival Servers Studio from Claude Code: upload builds, start game servers and persistent servers, read why one failed, with our rules for AI tools.",
+  "author": { "name": "Survival Servers" },
+  "homepage": "https://studio.survivalservers.com/docs/",
+  "repository": "https://github.com/survivalservers/studio-go",
+  "license": "Apache-2.0",
+  "keywords": ["game servers", "dedicated servers", "multiplayer", "hosting"],
+  "userConfig": {
+    "api_key": {
+      "type": "string",
+      "title": "API key",
+      "description": "A key from the panel's API keys page, with only the scopes your work needs. It stays on this computer.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "mcpServers": {
+    "survival-servers": {
+      "command": "survivalservers",
+      "args": ["mcp"],
+      "env": { "GS_API_KEY": "${user_config.api_key}" }
+    }
+  }
+}

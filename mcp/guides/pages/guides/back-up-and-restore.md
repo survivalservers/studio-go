@@ -51,6 +51,7 @@ For a persistent server that does not save on its own, set `launch.save` on the 
 - While the persistent server runs, its saves are also copied within seconds of each game save, with `kind` `continuous`. Only the changed parts are sent. The newest 3 are kept, apart from your other backups, and they fire no webhook. A persistent server whose machine fails starts again elsewhere from the newest backup of any kind, so save often in your game to lose less.
 - Have your game write each save to a new file and rename it over the old one. A copy taken in the middle of a save then still holds the last finished one.
 - Change the schedule with `PATCH /v0/persistent-servers/{id}` and a new `backup`.
+- An app's `default_backups` (`PATCH /v0/apps/{app}`, the same `every` and `keep_for`) is what its new persistent servers take when their create sends no `backup`; each field a create sends still wins. `null` goes back to ours. Persistent servers made before keep their own.
 - In the panel, a persistent server's **Backups** card has **Back up now** and **Upload a save**. Each backup has Restore, Download, Lock and Delete, and **Keep for** is in the persistent server's settings.
 
 ## Say when the game saved

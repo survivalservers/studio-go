@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -213,14 +214,22 @@ func (s *srv) addBuildTools(server *mcp.Server) {
 		})
 
 	if s.cfg.Local {
-		tool(s, server, "upload_windows_build", "Upload a Windows build", "Uploads a zip of a Windows server build from this computer as a new build of a windows app: in parts, straight to storage. Then wait_for_build until it is ready (the zip is checked and its programs listed).", changes, nil,
+		tool(s, server, "upload_windows_build", "Upload a Windows build", "Uploads a zip of a Windows server build from this computer as a new build of a windows app, straight to storage: only the chunks of its files that the studio does not hold yet (a new build of the same game sends little), or the whole zip in parts where the API does not take chunks. Then wait_for_build until it is ready (the files are checked and the programs listed).", changes, nil,
 			func(ctx context.Context, req *mcp.CallToolRequest, in uploadIn) (*mcp.CallToolResult, error) {
 				if err := s.allowedApp(ctx, in.App); err != nil {
 					return nil, err
 				}
-				build, err := s.client.UploadZip(ctx, in.App, in.ZipPath, api.UploadOptions{Storage: s.cfg.Storage, Progress: func(done, total int) {
+				if st, err := os.Stat(in.ZipPath); err == nil && st.IsDir() {
+					return nil, fmt.Errorf("%s is a folder; zip the build first (the zip's top level is the build's folder)", in.ZipPath)
+				}
+				// Only the chunks the studio's store lacks are sent; an API that does not take them gets the zip whole.
+				build, err := s.client.UploadChunks(ctx, in.App, in.ZipPath, api.UploadOptions{Storage: s.cfg.Storage, OnPart: func(p api.UploadProgress) {
 					if tok := req.Params.GetProgressToken(); tok != nil && req.Session != nil {
-						_ = req.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{ProgressToken: tok, Progress: float64(done), Total: float64(total), Message: fmt.Sprintf("part %d of %d uploaded", done, total)})
+						what := "part"
+						if p.Chunks {
+							what = "new chunk"
+						}
+						_ = req.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{ProgressToken: tok, Progress: float64(p.Parts), Total: float64(p.TotalParts), Message: fmt.Sprintf("%s %d of %d uploaded", what, p.Parts, p.TotalParts)})
 					}
 				}})
 				if err != nil {

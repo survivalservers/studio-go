@@ -66,9 +66,10 @@ type waitGSIn struct {
 }
 
 type stopIn struct {
-	ID     string `json:"id" jsonschema:"the game server's ID"`
-	Grace  string `json:"shutdown_time,omitempty" jsonschema:"time to save and exit before it is killed, for example 30s; default the version's"`
-	Reason string `json:"reason,omitempty" jsonschema:"why, kept on the game server's timeline"`
+	ID       string `json:"id" jsonschema:"the game server's ID"`
+	Grace    string `json:"shutdown_time,omitempty" jsonschema:"time to save and exit before it is killed, for example 30s; default the version's"`
+	Reason   string `json:"reason,omitempty" jsonschema:"why, kept on the game server's timeline"`
+	Approval string `json:"approval,omitempty" jsonschema:"only after approval_required: the request's ID (apr_...), once a member said yes in the panel"`
 }
 
 type listGSIn struct {
@@ -226,7 +227,7 @@ func (s *srv) addRunTools(server *mcp.Server) {
 			setIf(body, "shutdown_time", in.Grace)
 			setIf(body, "reason", firstOf(in.Reason, "stopped by an AI agent"))
 			var gs map[string]any
-			if err := s.client.JSON(ctx, api.Call{Method: http.MethodPost, Path: "/v0/game-servers/" + api.PathEscape(in.ID) + "/stop", Body: body}, &gs); err != nil {
+			if err := s.client.JSON(withApproval(ctx, in.Approval), api.Call{Method: http.MethodPost, Path: "/v0/game-servers/" + api.PathEscape(in.ID) + "/stop", Body: body}, &gs); err != nil {
 				return nil, err
 			}
 			return textResult(fmt.Sprintf("Game server %s is %s.", in.ID, str(gs["status"])), pick(gs, "id", "status", "app", "version", "region", "stopped_at", "exit")), nil
