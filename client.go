@@ -135,9 +135,18 @@ type Problem struct {
 	RequestID    string            `json:"request_id"`
 	Errors       []FieldError      `json:"errors"`
 	RegionsTried []json.RawMessage `json:"regions_tried"`
-	RetryAfter   string            `json:"-"`
-	Method       string            `json:"-"`
-	Path         string            `json:"-"`
+	// Approval: for approval_required, the request a member answers in the panel.
+	Approval   *ApprovalRequest `json:"approval,omitempty"`
+	RetryAfter string           `json:"-"`
+	Method     string           `json:"-"`
+	Path       string           `json:"-"`
+}
+
+// ApprovalRequest is what an AI agent asked a member's yes for: its ID, where a member answers it, and when it ends.
+type ApprovalRequest struct {
+	ID        string `json:"id"`
+	URL       string `json:"url"`
+	ExpiresAt string `json:"expires_at"`
 }
 
 // FieldError is one field's problem in a validation_failed reply.
@@ -173,7 +182,7 @@ var NextStep = map[string]string{
 	"not_available_yet":      "This field or call is not available yet on this API. Leave it out.",
 	"rate_limited":           "Over the rate limit. Wait the Retry-After time, then try once more.",
 	"internal":               "A fault on the API's side. It is safe to try the same call again.",
-	"capacity_unavailable":   "No capacity in any region tried (see regions_tried). Allow more regions or continents, or try again shortly.",
+	"capacity_unavailable":   "No capacity in any region tried (see regions_tried). Allow more regions or continents, or try again later.",
 	"unavailable":            "The API is briefly unavailable. Try again in a few seconds.",
 	"bad_request":            "The request is malformed or has a field the call does not take (errors names it). Fix the request; the same one again will fail the same way.",
 	"studio_required":        "This member belongs to several studios. Name the studio in the Studio header.",
@@ -186,8 +195,10 @@ var NextStep = map[string]string{
 	"unsupported_image":      "The picture is not a PNG, JPEG or WebP the API can read, is outside the size the call allows, or its Content-Type names another type. Send a plain PNG, JPEG or WebP of the right size.",
 	"agent_not_allowed":      "The member who connected this AI agent did not switch this on. They connect it again with that permission.",
 	"agent_spending_cap":     "This AI agent reached its monthly spending cap. It can start game servers again on the 1st (UTC).",
+	"approval_required":      "This AI agent asks a member first. A member says yes on the panel's AI agents page (approval.url); then make the same call again with the header Approval: <approval.id>.",
 	"link_address_changed":   "This download link was made from another address. Make a new link from the address that will download it.",
 	"signups_closed":         "Open sign-up is closed. A person invited to a studio signs up with the invitation's link.",
+	"test_daily_limit":       "The studio started as many test game servers as it may in 24 hours. The next test start works once the oldest of them is 24 hours old.",
 }
 
 func (p *Problem) Error() string {
@@ -265,6 +276,9 @@ type Call struct {
 	// must reuse it, so callers that retry set it themselves.
 	IdempotencyKey string
 	Accept         string
+	// Approval is sent as the Approval header: an AI agent's request a member said yes to ("Ask me first"), for the
+	// same call made again.
+	Approval string
 }
 
 // File is a Call.Body sent as a file's own bytes rather than JSON: the picture for an icon or a banner
@@ -356,6 +370,9 @@ func (c *Client) send(ctx context.Context, hc *http.Client, call Call) (*http.Re
 		}
 		if key != "" {
 			req.Header.Set("Idempotency-Key", key)
+		}
+		if call.Approval != "" {
+			req.Header.Set("Approval", call.Approval)
 		}
 		resp, err := hc.Do(req)
 		if err != nil {

@@ -86,8 +86,10 @@ type UploadOptions struct {
 	ResumeDir string
 }
 
-// UploadProgress is where an upload stands after a finished part.
+// UploadProgress is where an upload stands after a finished part (or chunk: see Chunks).
 type UploadProgress struct {
+	// Chunks is true for a build sent as chunks (UploadChunks): Parts and TotalParts then count the chunks to send.
+	Chunks            bool
 	Parts, TotalParts int
 	// Bytes is what storage holds so far, Resumed the part of it an earlier run sent, TotalBytes the zip's size.
 	Bytes, Resumed, TotalBytes int64
