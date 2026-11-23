@@ -336,3 +336,46 @@ func TestUploadChunksFallsBackToAZip(t *testing.T) {
 		t.Errorf("a file that is not a readable zip goes up whole: %v %v %v", b, err, source)
 	}
 }
+
+// TestUploadChunksNamesTheListAsThePanelNamesTheBuild: the panel names a chunk build by its list's name without
+// ".files.jsonl", so a folder keeps its whole name (a dotted one too: "ArenaServer-1.4.3" was sent as
+// "ArenaServer-1.4.files.jsonl" and read "ArenaServer-1.4"), and a zip loses only its ".zip".
+func TestUploadChunksNamesTheListAsThePanelNamesTheBuild(t *testing.T) {
+	f := newFakeChunks(t)
+	c, _ := New(f.api.URL, "gsk_live_EXAMPLE_not_a_real_key", nil, "")
+	dir := filepath.Join(t.TempDir(), "ArenaServer-1.4.3")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(dir, "Server.exe"), []byte("a small program"), 0o755)
+	if _, err := c.UploadChunks(context.Background(), "brawl", dir, UploadOptions{Storage: f.store.Client()}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, _, _, source := f.snap(); source["filename"] != "ArenaServer-1.4.3.files.jsonl" {
+		t.Errorf("a dotted folder's list is named %v", source["filename"])
+	}
+	zipPath := filepath.Join(t.TempDir(), "ArenaServer-1.4.3.zip")
+	out, _ := os.Create(zipPath)
+	zw := zip.NewWriter(out)
+	w, _ := zw.Create("Server.exe")
+	w.Write([]byte("a small program"))
+	zw.Close()
+	out.Close()
+	if _, err := c.UploadChunks(context.Background(), "brawl", zipPath, UploadOptions{Storage: f.store.Client()}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, _, _, source := f.snap(); source["filename"] != "ArenaServer-1.4.3.files.jsonl" {
+		t.Errorf("a zip's list is named %v", source["filename"])
+	}
+	here, _ := os.Getwd()
+	for path, want := range map[string]string{
+		"/builds/Server.ZIP":         "Server.files.jsonl",
+		"/builds/ArenaServer-1.4.3/": "ArenaServer-1.4.3.files.jsonl",
+		"/builds/Game.v2.0":          "Game.v2.0.files.jsonl",
+		".":                          filepath.Base(here) + ".files.jsonl",
+	} {
+		if got := listName(path); got != want {
+			t.Errorf("listName(%q) = %q, want %q", path, got, want)
+		}
+	}
+}

@@ -30,8 +30,11 @@ var ErrNoAddressInTests = errors.New("no API address given: tests must set one")
 
 // Client calls the API with one key.
 type Client struct {
-	base      *url.URL
-	key       string
+	base *url.URL
+	// key gives the API key. It is held in a closure, so no printout of a client shows it: fmt (%v, %+v and %#v of a
+	// Client, a *Client or a struct holding either) and reflection dumps (go-spew, testify's diff) print a func as its
+	// address, never what it holds.
+	key       func() string
 	http      *http.Client
 	streams   *http.Client // no overall timeout: followed logs and event streams stay open
 	userAgent string
@@ -75,7 +78,7 @@ func New(baseURL, key string, httpClient *http.Client, userAgent string) (*Clien
 	if userAgent == "" {
 		userAgent = DefaultUserAgent()
 	}
-	return &Client{base: u, key: key, http: httpClient, streams: streams, userAgent: userAgent,
+	return &Client{base: u, key: func() string { return key }, http: httpClient, streams: streams, userAgent: userAgent,
 		tries: DefaultTries, maxWait: DefaultMaxWait, sleep: sleepCtx}, nil
 }
 
@@ -121,7 +124,15 @@ func retryWait(retryAfter string, try int) time.Duration {
 }
 
 // HasKey reports whether the client has a key to send.
-func (c *Client) HasKey() bool { return c.key != "" }
+func (c *Client) HasKey() bool { return c.apiKey() != "" }
+
+// apiKey is the key the client sends ("" for none, and for a zero Client).
+func (c *Client) apiKey() string {
+	if c.key == nil {
+		return ""
+	}
+	return c.key()
+}
 
 // Base is the API address without /v0.
 func (c *Client) Base() string { return c.base.String() }
@@ -199,6 +210,8 @@ var NextStep = map[string]string{
 	"link_address_changed":   "This download link was made from another address. Make a new link from the address that will download it.",
 	"signups_closed":         "Open sign-up is closed. A person invited to a studio signs up with the invitation's link.",
 	"test_daily_limit":       "The studio started as many test game servers as it may in 24 hours. The next test start works once the oldest of them is 24 hours old.",
+	"example_studio":         "This is an example studio: it only reads. Sign up, and start or change things with a key of your own studio.",
+	"not_allowed":            "A setting of the app does not allow this yet. Turn on the setting the detail names (in the panel), then try again.",
 }
 
 func (p *Problem) Error() string {
@@ -324,7 +337,7 @@ func (c *Client) Stream(ctx context.Context, call Call) (io.ReadCloser, error) {
 // send makes the request, trying again as SetRetry says; a reply that is not 2xx or 3xx is read and turned into a
 // *Problem.
 func (c *Client) send(ctx context.Context, hc *http.Client, call Call) (*http.Response, error) {
-	if c.key == "" {
+	if c.apiKey() == "" {
 		return nil, ErrNoKey
 	}
 	u := *c.base
@@ -360,7 +373,7 @@ func (c *Client) send(ctx context.Context, hc *http.Client, call Call) (*http.Re
 		if err != nil {
 			return nil, err
 		}
-		req.Header.Set("Authorization", "Bearer "+c.key)
+		req.Header.Set("Authorization", "Bearer "+c.apiKey())
 		req.Header.Set("Accept", firstNonEmpty(call.Accept, "application/json"))
 		if c.userAgent != "" {
 			req.Header.Set("User-Agent", c.userAgent)

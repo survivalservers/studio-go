@@ -1,28 +1,86 @@
-# Go client for the game server API
+# studio-go
 
-A small Go client for the public game server API, shared by the command-line tool and the MCP server. Apache-2.0,
-standard library only.
+The Go client for the [Survival Servers Studio](https://studio.survivalservers.com/) API, game server hosting for
+game studios. This repository also holds the `survivalservers` command-line tool, the MCP server for AI coding tools,
+and gsbench. Standard library only. Apache-2.0.
 
-- JSON in and out, an `Idempotency-Key` on every `POST` and `PATCH` (random, or yours), and API errors (problem
-  details) as a `*Problem` whose message says what to do next.
-- A call the API did not do is tried again, 3 times in all: on `429 rate_limited`, and on `503 unavailable` with the
-  same `Idempotency-Key`, waiting `Retry-After` up to 30 seconds. Never on `503 capacity_unavailable`, which is yours to
-  answer (more regions, or later). `SetRetry` changes both numbers.
-- `UploadZip`: a Windows build uploaded in parts straight to storage, each with its exact length, three at once; links
-  that run out are replaced by reading the build again; a repeated upload with the same idempotency key finds the
-  first build, and with `ResumeDir` a re-run of the same zip carries on with the parts left.
-- The `chunks` package cuts a build's files into the chunks the build store keeps (1 to 4 MiB, following the
-  content), exactly as the store cuts them, so each chunk can be named by its SHA-256 before anything is sent.
-- `UploadChunks`: a Windows build (a zip or a folder) sent as only the chunks your studio does not hold yet: every file
-  is cut into the build store's chunks, the build's file list goes up, the API names the chunks the studio lacks, and
-  only those are sent. A new build of the same game sends little. An API that does not take chunks gets a zip whole.
-- `Wait` with backoff, and the settled states of builds, versions, game servers and persistent servers.
-- `CheckVersion`: a version body checked before it is sent (sizes for the tier, ports and templates, the ready
-  check, the stop method for the system, the executable in the zip).
-- `DownloadLink` (JSON or redirect) and `Stream` for followed logs.
-- `Skill`: the one rules file for AI tools (`skill/survival-servers/SKILL.md`), which `survivalservers ai setup` installs and the
-  MCP server's instructions carry. Change the rules there.
+## Install
 
 ```bash
-go test ./...
+go get github.com/survivalservers/studio-go
 ```
+
+Requires Go 1.25 or newer.
+
+## Start a game server
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
+	client "github.com/survivalservers/studio-go"
+)
+
+func main() {
+	ctx := context.Background()
+	c, err := client.New(client.DefaultURL, os.Getenv("GS_API_KEY"), nil, "")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Start a game server from the app's live branch.
+	var gs map[string]any
+	err = c.JSON(ctx, client.Call{Method: http.MethodPost, Path: "/v0/game-servers",
+		Body: map[string]any{"app": "my-game", "branch": "live"}}, &gs)
+	if err != nil {
+		log.Fatal(err) // a *client.Problem says what to do next
+	}
+
+	// Wait until it is running, then print the address players join.
+	gs, _, err = client.Wait(ctx, 5*time.Minute, 0, func(ctx context.Context) (map[string]any, error) {
+		return c.Get(ctx, "/v0/game-servers/"+gs["id"].(string), nil)
+	}, client.GameServerSettled, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(gs["status"], gs["address"])
+}
+```
+
+## What it handles
+
+- **Idempotency keys.** Every `POST` and `PATCH` gets an `Idempotency-Key`, random or yours.
+- **Retries.** Up to 3 tries on `429 rate_limited` and `503 unavailable`, waiting `Retry-After` up to 30 seconds.
+  `SetRetry` changes both.
+- **Errors.** API errors come back as a `*Problem` with the error code, the request ID and the next step.
+- **Uploads.** `UploadChunks` sends a Windows build as only the parts your studio doesn't have yet, so a new build of
+  the same game uploads little. `UploadZip` sends a whole zip in parts.
+- **Waiting.** `Wait` polls with backoff until a build, version, game server or persistent server settles.
+- **Version checks.** `CheckVersion` checks a version's settings before you send them.
+- **Logs and downloads.** `Stream` follows logs. `DownloadLink` gets a file's download link.
+
+## In this repository
+
+| Folder | What it is |
+|---|---|
+| [`cli`](cli/) | `survivalservers`, the command-line tool: upload builds, start game servers, follow logs |
+| [`mcp`](mcp/) | The MCP server that lets Claude Code, Cursor and other AI tools run your game servers |
+| [`localapi`](localapi/) | The local API, and `survivalservers dev`, which runs your game server on your computer the way our machines do |
+| [`bench`](bench/) | gsbench: how many game servers a machine fits at 64 and 128 Hz, and how good its network is |
+
+## Links
+
+- [API reference](https://studio.survivalservers.com/docs/reference/overview/)
+- [API clients for other languages](https://studio.survivalservers.com/docs/guides/api-clients/)
+- [Changelog](CHANGELOG.md)
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE).
