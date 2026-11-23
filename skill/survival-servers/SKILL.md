@@ -18,7 +18,7 @@ One API call starts a dedicated game server on Windows or Linux and returns the 
 
 ## How to call the API
 
-Every call is HTTPS and JSON at `https://studio.survivalservers.com/v0`, with the key from `GS_API_KEY` in an `Authorization: Bearer` header. A refused call answers with `status`, `code`, `detail` and `request_id`.
+Every call is HTTPS and JSON at `https://studio.survivalservers.com/v0`, with the key from `GS_API_KEY` in an `Authorization: Bearer` header. With curl, give it that header on its standard input (`-H @-`, from the shell's own `printf`), never as an argument: an argument can be read by anyone on the computer while the call runs. A refused call answers with `status`, `code`, `detail` and `request_id`.
 
 <!-- clients -->
 Or use one of our tools:
@@ -31,8 +31,9 @@ Or use one of our tools:
 ## Start a game server
 
 ```bash
+printf 'Authorization: Bearer %s\n' "$GS_API_KEY" |
 curl -X POST "https://studio.survivalservers.com/v0/game-servers" \
-  -H "Authorization: Bearer $GS_API_KEY" \
+  -H @- \
   -H "Idempotency-Key: match-8841" \
   -H "Content-Type: application/json" \
   -d '{"app": "breakwire-windows", "placement": {"regions": ["europe-west"]}}'

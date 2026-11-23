@@ -253,6 +253,20 @@ type chunkLink struct {
 	ExpiresAt time.Time         `json:"expires_at"`
 }
 
+// listName is a chunk build's list name, from which the panel names the build: a zip's name without its ".zip", a
+// folder's name whole. A folder named ArenaServer-1.4.3 keeps its ".3" (until #235's follow-up it was cut as if it
+// were an ending, and the build read "ArenaServer-1.4"), and "." is the folder's own name, not an empty one.
+func listName(path string) string {
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
+	name := filepath.Base(path)
+	if ext := filepath.Ext(name); strings.EqualFold(ext, ".zip") {
+		name = strings.TrimSuffix(name, ext)
+	}
+	return name + ".files.jsonl"
+}
+
 // chunksNotTaken says whether the API refused the build because it does not take chunk builds: an older API answers
 // an unknown field with bad_request.
 func chunksNotTaken(err error) bool {
@@ -283,7 +297,7 @@ func (c *Client) UploadChunks(ctx context.Context, app, path string, opt UploadO
 	listSum := sha256.Sum256(plan.list)
 	reply, err := c.Do(ctx, Call{Method: http.MethodPost, Path: "/v0/apps/" + PathEscape(app) + "/builds", IdempotencyKey: opt.IdempotencyKey, Body: map[string]any{
 		"os": "windows",
-		"source": map[string]any{"type": "upload", "filename": strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)) + ".files.jsonl",
+		"source": map[string]any{"type": "upload", "filename": listName(path),
 			"bytes": len(plan.list), "sha256": hex.EncodeToString(listSum[:]), "chunks": map[string]any{"files": plan.files, "bytes": plan.bytes}},
 	}})
 	if err != nil {

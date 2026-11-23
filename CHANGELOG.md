@@ -2,6 +2,15 @@
 
 What changed in each release of the Go API client, newest first.
 
+## 0.1.3
+
+- Printing or logging a client no longer shows its API key. Earlier versions (Python 0.1.0, Go v0.1.0 to v0.1.2)
+  included the key when the client was printed. If your logs may hold a printed client, make a new key in the
+  dashboard and revoke the old one.
+- `UploadChunks`: a folder with a dot in its name (ArenaServer-1.4.3) keeps its whole name as the build's name.
+- The next step for `not_allowed` and for `example_studio`.
+- The AI tools' rules file (`Skill`) has curl send the key on its standard input, never on its command line.
+
 ## 0.1.2
 
 - `UploadChunks`: a Windows build (a zip or a folder) sent as only the chunks the studio does not hold yet, so a new
